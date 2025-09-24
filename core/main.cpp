@@ -2,6 +2,7 @@
 #include "input/input.hpp"
 #include "display/display.hpp"
 #include "clock/clock.hpp"
+#include "sound/sound.hpp"
 
 // Thread function
 DWORD WINAPI ConsoleThread(LPVOID lpParam) {
@@ -9,6 +10,18 @@ DWORD WINAPI ConsoleThread(LPVOID lpParam) {
     DisplayManager display;
     InputManager input;
     ClockManager clockManager;
+    
+    // Initialize sound system
+    if (!audio_init()) {
+        display.PrintColoredLine(COLOR_BRIGHT_RED, "ERROR: Failed to initialize audio system!");
+        return 1;
+    }
+    display.PrintColoredLine(COLOR_BRIGHT_GREEN, "Audio system initialized successfully!");
+    
+    // Load test WAV files
+    load_wav_file("ahem_x.wav");
+    load_wav_file("air_raid.wav");
+    load_wav_file("airplane_chime_x.wav");
     
     // Create different clocks for different purposes
     int mainLoopClock = clockManager.CreateClock(60, "MainLoop");     // 60 FPS main loop
@@ -18,6 +31,7 @@ DWORD WINAPI ConsoleThread(LPVOID lpParam) {
     // Performance counters
     int frameCount = 0;
     bool showDetailedInfo = false;
+    bool soundTestMode = false; // Toggle between FPS adjustment and sound testing
 
     while (true) {
         // Main loop timing
@@ -30,7 +44,14 @@ DWORD WINAPI ConsoleThread(LPVOID lpParam) {
                 display.ClearScreen();
                 display.MoveCursor(1, 1);
                 display.PrintStyledText(STYLE_BOLD, COLOR_BRIGHT_GREEN, "ASCIILATOR System Test - Press ESC to exit");
-                display.PrintColoredLine(COLOR_CYAN, "Test: Keys, Mouse buttons (L/R/M), Mouse movement | Press 'I' for detailed clock info");
+                display.PrintColoredLine(COLOR_CYAN, "Test: Keys, Mouse buttons (L/R/M), Mouse movement | Press 'I' for clock info | 'S' for sound mode");
+                
+                // Display current mode
+                if (soundTestMode) {
+                    display.PrintColoredLine(COLOR_BRIGHT_MAGENTA, "SOUND TEST MODE: 1-6=Tones (spatial), 7-9=WAV files, 0=Spinning sound | 'S' to switch back");
+                } else {
+                    display.PrintColoredLine(COLOR_BRIGHT_CYAN, "FPS ADJUST MODE: 1=30fps, 2=60fps, 3=120fps | 'S' for sound testing");
+                }
                 
                 // Clock status display
                 display.MoveCursor(3, 1);
@@ -51,12 +72,22 @@ DWORD WINAPI ConsoleThread(LPVOID lpParam) {
                     clockManager.GetCurrentFps(inputClock),
                     clockManager.GetDeltaTime(mainLoopClock));
                 
-                // Separator
+                // Sound System Status
                 display.MoveCursor(7, 1);
-                display.DrawHorizontalLine(1, 7, 80, '-');
+                display.PrintStyledText(STYLE_BOLD, COLOR_BRIGHT_MAGENTA, "Sound System Status:");
+                display.MoveCursor(8, 1);
+                if (soundTestMode) {
+                    display.PrintColoredLine(COLOR_BRIGHT_GREEN, "READY - Press 1-6 for tones, 7-9 for WAV files, 0 for spinning demo");
+                } else {
+                    display.PrintColoredLine(COLOR_BRIGHT_YELLOW, "FPS Mode - Press 'S' to enable sound testing");
+                }
+                
+                // Separator
+                display.MoveCursor(9, 1);
+                display.DrawHorizontalLine(1, 9, 80, '-');
                 
                 // Test keyboard input
-                display.MoveCursor(9, 1);
+                display.MoveCursor(11, 1);
                 display.PrintColoredLine(COLOR_BRIGHT_YELLOW, "Keyboard Status:");
                 input.PrintPressedKeys();
                 
@@ -108,18 +139,90 @@ DWORD WINAPI ConsoleThread(LPVOID lpParam) {
                 showDetailedInfo = !showDetailedInfo;
             }
             
-            // Dynamic FPS adjustment with number keys
-            if (input.GetKeyLSB(VK_1)) {
-                clockManager.SetClockFps(mainLoopClock, 30);
-                clockManager.ResetCounters(mainLoopClock);
+            // Toggle sound test mode with 'S' key
+            if (input.GetKeyLSB(VK_S)) {
+                soundTestMode = !soundTestMode;
+                sound_kill_all(); // Stop all sounds when switching modes
+                sound_wav_kill_all();
             }
-            if (input.GetKeyLSB(VK_2)) {
-                clockManager.SetClockFps(mainLoopClock, 60);
-                clockManager.ResetCounters(mainLoopClock);
-            }
-            if (input.GetKeyLSB(VK_3)) {
-                clockManager.SetClockFps(mainLoopClock, 120);
-                clockManager.ResetCounters(mainLoopClock);
+            
+            // Sound testing or FPS adjustment based on mode
+            if (soundTestMode) {
+                // Sound testing mode - Number keys 1-9 and 0 for different sounds
+                if (input.GetKeyLSB(VK_1)) {
+                    sound_kill_all(); // Stop previous sounds
+                    sound_timer(1, 261.63, 0.8f, 0.0, 2.0); // C4 note
+                    sound_angle(1, 0.0f); // Center
+                }
+                if (input.GetKeyLSB(VK_2)) {
+                    sound_kill_all();
+                    sound_timer(2, 293.66, 0.8f, 0.0, 2.0); // D4 note
+                    sound_angle(2, 45.0f); // Front-right
+                }
+                if (input.GetKeyLSB(VK_3)) {
+                    sound_kill_all();
+                    sound_timer(3, 329.63, 0.8f, 0.0, 2.0); // E4 note
+                    sound_angle(3, 90.0f); // Right
+                }
+                if (input.GetKeyLSB(VK_4)) {
+                    sound_kill_all();
+                    sound_timer(4, 349.23, 0.8f, 0.0, 2.0); // F4 note
+                    sound_angle(4, 135.0f); // Back-right
+                }
+                if (input.GetKeyLSB(VK_5)) {
+                    sound_kill_all();
+                    sound_timer(5, 392.00, 0.8f, 0.0, 2.0); // G4 note
+                    sound_angle(5, 180.0f); // Behind
+                }
+                if (input.GetKeyLSB(VK_6)) {
+                    sound_kill_all();
+                    sound_timer(6, 440.00, 0.8f, 0.0, 2.0); // A4 note
+                    sound_angle(6, 225.0f); // Back-left
+                }
+                if (input.GetKeyLSB(VK_7)) {
+                    sound_wav_kill_all();
+                    sound_wav_timer(7, "ahem_x.wav", 1.0f, 3.0);
+                    sound_angle(100 + 7, 270.0f); // Left
+                }
+                if (input.GetKeyLSB(VK_8)) {
+                    sound_wav_kill_all();
+                    sound_wav_timer(8, "air_raid.wav", 1.0f, 5.0);
+                    sound_angle(100 + 8, 315.0f); // Front-left
+                }
+                if (input.GetKeyLSB(VK_9)) {
+                    sound_wav_kill_all();
+                    sound_wav_timer(9, "airplane_chime_x.wav", 1.0f, 4.0);
+                    sound_angle(100 + 9, 0.0f); // Center
+                }
+                if (input.GetKeyLSB(VK_0)) {
+                    // Special test: spinning sound
+                    sound_kill_all();
+                    sound_wav_kill_all();
+                    static int spinSound = -1;
+                    static float spinAngle = 0.0f;
+                    
+                    if (spinSound == -1) {
+                        spinSound = sound_static(10, 523.25, 0.6f, 0.0); // C5 note
+                    }
+                    
+                    spinAngle += 10.0f;
+                    if (spinAngle >= 360.0f) spinAngle = 0.0f;
+                    sound_angle(10, spinAngle);
+                }
+            } else {
+                // FPS adjustment mode (original functionality)
+                if (input.GetKeyLSB(VK_1)) {
+                    clockManager.SetClockFps(mainLoopClock, 30);
+                    clockManager.ResetCounters(mainLoopClock);
+                }
+                if (input.GetKeyLSB(VK_2)) {
+                    clockManager.SetClockFps(mainLoopClock, 60);
+                    clockManager.ResetCounters(mainLoopClock);
+                }
+                if (input.GetKeyLSB(VK_3)) {
+                    clockManager.SetClockFps(mainLoopClock, 120);
+                    clockManager.ResetCounters(mainLoopClock);
+                }
             }
             
             // Check for exit condition
@@ -140,6 +243,12 @@ DWORD WINAPI ConsoleThread(LPVOID lpParam) {
         // Small sleep to prevent excessive CPU usage
         Sleep(1);
     }
+    
+    // Cleanup audio system
+    sound_kill_all();
+    sound_wav_kill_all();
+    audio_shutdown();
+    display.PrintColoredLine(COLOR_BRIGHT_YELLOW, "Audio system shutdown complete.");
     
     return 0;
 }
@@ -168,12 +277,18 @@ int main() {
     display.PrintLine("ANSI colors, cursor control, text formatting");
     display.PrintColored(COLOR_BRIGHT_YELLOW, "  • Clock System: ");
     display.PrintLine("Multi-clock FPS management and timing");
+    display.PrintColored(COLOR_BRIGHT_MAGENTA, "  • Sound System: ");
+    display.PrintLine("360° stereo audio with tones and WAV playback");
     display.PrintLine("");
     
     display.PrintColoredLine(COLOR_BRIGHT_WHITE, "Interactive Controls:");
     display.PrintLine("  • ESC: Exit application");
     display.PrintLine("  • I: Toggle detailed clock information");
-    display.PrintLine("  • 1/2/3: Set main loop to 30/60/120 FPS");
+    display.PrintLine("  • S: Toggle between FPS adjustment and sound testing");
+    display.PrintLine("  • FPS Mode - 1/2/3: Set main loop to 30/60/120 FPS");
+    display.PrintLine("  • Sound Mode - 1-6: Musical tones with spatial positioning");
+    display.PrintLine("  • Sound Mode - 7-9: WAV file playback (ahem, air_raid, airplane)");
+    display.PrintLine("  • Sound Mode - 0: Spinning stereo sound demo");
     display.PrintLine("  • W/WASD: Test key detection");
     display.PrintLine("  • Ctrl+A: Test key combinations");
     display.PrintLine("  • Mouse: Move and click to test mouse input");

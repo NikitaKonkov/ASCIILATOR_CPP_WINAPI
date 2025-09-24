@@ -968,7 +968,7 @@ bool load_wav_file(const char* filename) {
     }
     
     char full_path[512];
-    snprintf(full_path, sizeof(full_path), "resources/sounds/%s", filename);
+    snprintf(full_path, sizeof(full_path), "source/sound/%s", filename);
     
     FILE* file = fopen(full_path, "rb");
     if (!file) {
