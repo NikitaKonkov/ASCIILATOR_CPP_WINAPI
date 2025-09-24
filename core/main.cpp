@@ -3,8 +3,12 @@
 #include "display/display.hpp"
 #include "clock/clock.hpp"
 #include "sound/sound.hpp"
+#include "render/render.hpp"
 
 static float angle = 0.0f;
+static float cube_rotation_x = 0.0f;
+static float cube_rotation_y = 0.0f;
+static float cube_rotation_z = 0.0f;
 
 
 // Thread function
@@ -14,6 +18,9 @@ DWORD WINAPI ConsoleThread(LPVOID lpParam) {
     InputManager input;
     ClockManager clockManager;
     SoundManager soundManager;
+    
+    // Initialize 3D rendering
+    init_mouse_camera();
     
     // Initialize sound system
     if (!soundManager.AudioInit()) {
@@ -29,109 +36,176 @@ DWORD WINAPI ConsoleThread(LPVOID lpParam) {
     
     // Create different clocks for different purposes
     int mainLoopClock = clockManager.CreateClock(60, "MainLoop");     // 60 FPS main loop
-    int displayClock = clockManager.CreateClock(2, "Display");       // 2 FPS display updates
+    int displayClock = clockManager.CreateClock(30, "Display");      // 30 FPS display updates
+    int renderClock = clockManager.CreateClock(30, "Render");        // 30 FPS 3D rendering
     
     // Performance counters
     int frameCount = 0;
     bool showDetailedInfo = false;
     bool soundTestMode = false; // Toggle between FPS adjustment and sound testing
+    bool show3DView = true; // Toggle 3D view
 
     while (true) {
         // Main loop timing
         if (clockManager.SyncClock(mainLoopClock)) {
             frameCount++;
             
+            // Update cube rotation
+            cube_rotation_x += 0.01f;
+            cube_rotation_y += 0.015f;
+            cube_rotation_z += 0.008f;
+            
+            // Handle camera movement with WASD and mouse
+            POINT mousePos;
+            GetCursorPos(&mousePos);
+            update_camera_mouse(mousePos.x, mousePos.y);
+            
+            // Camera movement
+            bool forward = input.GetKeyMSB('W');
+            bool backward = input.GetKeyMSB('S');
+            bool left = input.GetKeyMSB('A');
+            bool right = input.GetKeyMSB('D');
+            bool up = input.GetKeyMSB(VK_SPACE);
+            bool down = input.GetKeyMSB(VK_SHIFT);
+            
+            move_camera(forward, backward, left, right, up, down);
+            
+            // 3D Rendering
+            if (clockManager.SyncClock(renderClock) && show3DView) {
+                geometry_draw(); // Clear 3D buffer
+                
+                // Draw rotating cube at origin
+                vertex cube_center = {0.0f, 0.0f, 5.0f}; // 5 units in front of initial camera
+                draw_rotating_cube(cube_center, 2.0f, cube_rotation_x, cube_rotation_y, cube_rotation_z);
+                
+                // Draw a second cube to the right
+                vertex cube_center2 = {4.0f, 2.0f, 8.0f};
+                draw_rotating_cube(cube_center2, 1.5f, -cube_rotation_x, cube_rotation_y * 0.5f, cube_rotation_z * 2.0f);
+                
+                // Draw a third cube to the left
+                vertex cube_center3 = {-3.0f, -1.0f, 7.0f};
+                draw_rotating_cube(cube_center3, 1.0f, cube_rotation_x * 2.0f, -cube_rotation_y, cube_rotation_z);
+            }
+            
             // Display updates (30 FPS)
             if (clockManager.SyncClock(displayClock)) {
-                // Clear screen and display header
-                display.ClearScreen();
-                display.MoveCursor(1, 1);
-                display.PrintStyledText(STYLE_BOLD, COLOR_BRIGHT_GREEN, "ASCIILATOR System Test - Press ESC to exit");
-                display.MoveCursor(2, 1);
-                display.PrintColoredLine(COLOR_CYAN, "Test: Keys, Mouse buttons (L/R/M), Mouse movement | Press 'I' for clock info | 'S' for sound mode");
-                
-                // Display current mode
-                if (soundTestMode) {
-                    display.PrintColoredLine(COLOR_BRIGHT_MAGENTA, "SOUND TEST MODE: 1-6=Tones (spatial), 7-9=WAV files, 0=Spinning sound | 'S' to switch back");
-                } else {
-                    display.PrintColoredLine(COLOR_BRIGHT_CYAN, "FPS ADJUST MODE: 1=30fps, 2=60fps, 3=120fps | 'S' for sound testing");
-                }
-                
-                // Clock status display
-                display.MoveCursor(3, 1);
-                display.PrintStyledText(STYLE_BOLD, COLOR_BRIGHT_YELLOW, "Clock Status:");
-                
-                display.MoveCursor(5, 1);
-                display.PrintFormatted("Main Loop: %.1f FPS (Target: %d) | Frames: %lu | Uptime: %.1fs",
-                    clockManager.GetCurrentFps(mainLoopClock),
-                    clockManager.GetTargetFps(mainLoopClock),
-                    clockManager.GetTotalFrames(mainLoopClock),
-                    clockManager.GetUptime(mainLoopClock));
-                
-                display.MoveCursor(6, 1);
-                display.PrintFormatted("Display: %.1f FPS | Input: %.1f FPS | Delta: %.3fs",
-                    clockManager.GetCurrentFps(displayClock),
-                    clockManager.GetDeltaTime(mainLoopClock));
-                
-                // Sound System Status
-                display.MoveCursor(7, 1);
-                display.PrintStyledText(STYLE_BOLD, COLOR_BRIGHT_MAGENTA, "Sound System Status:");
-                display.MoveCursor(8, 1);
-                if (soundTestMode) {
-                    display.PrintColoredLine(COLOR_BRIGHT_GREEN, "READY - Press 1-6 for tones, 7-9 for WAV files, 0 for spinning demo");
-                } else {
-                    display.PrintColoredLine(COLOR_BRIGHT_YELLOW, "FPS Mode - Press 'S' to enable sound testing");
-                }
-                
-                // Separator
-                display.MoveCursor(9, 1);
-                display.DrawHorizontalLine(1, 9, 80, '-');
-                
-                // Test keyboard input
-                display.MoveCursor(11, 1);
-                display.PrintColoredLine(COLOR_BRIGHT_YELLOW, "Keyboard Status:");
-                input.PrintPressedKeys();
-                
-                // Test specific key combinations
-                if (input.GetKeyMSB(VK_W)) {
-                    display.PrintColoredLine(COLOR_BRIGHT_GREEN, "W key is pressed!");
-                }
-                
-                if (input.GetPressedKeys(2, VK_CONTROL, VK_A)) {
-                    display.PrintColoredLine(COLOR_BRIGHT_RED, "Ctrl+A combination detected!");
-                }
-                
-                // Test mouse input
-                display.PrintColoredLine(COLOR_BRIGHT_CYAN, "Mouse Status:");
-                input.PrintMousePosition();
-                input.PrintMouseButtons();
-                
-                // Check for mouse movement
-                if (input.IsMouseMoved()) {
-                    display.PrintColoredLine(COLOR_BRIGHT_MAGENTA, "Mouse moved!");
-                }
-                
-                // Test specific mouse button combinations
-                if (input.GetMouseButtonState(VK_LBUTTON) && input.GetMouseButtonState(VK_RBUTTON)) {
-                    display.PrintColoredLine(COLOR_BRIGHT_RED, "Both left and right buttons pressed!");
-                }
-                
-                // Show detailed clock information if requested
-                if (showDetailedInfo) {
-                    display.MoveCursor(18, 1);
-                    display.DrawHorizontalLine(1, 18, 80, '=');
-                    display.MoveCursor(19, 1);
-                    display.PrintStyledText(STYLE_BOLD, COLOR_BRIGHT_CYAN, "Detailed Clock Information:");
+                if (show3DView) {
+                    // Render 3D view
+                    output_buffer();
                     
-                    display.MoveCursor(20, 1);
-                    clockManager.PrintClockInfo(mainLoopClock);
-                    display.MoveCursor(27, 1);
-                    clockManager.PrintClockInfo(displayClock);
+                    // Add overlay information
+                    display.MoveCursor(1, 1);
+                    display.PrintStyledText(STYLE_BOLD, COLOR_BRIGHT_GREEN, "ASCIILATOR 3D View - ESC to exit | TAB to toggle UI");
+                    display.MoveCursor(2, 1);
+                    display.PrintFormatted("Camera: X=%.1f Y=%.1f Z=%.1f Yaw=%.2f Pitch=%.2f", 
+                        camera.x, camera.y, camera.z, camera.yaw, camera.pitch);
+                    display.MoveCursor(3, 1);
+                    display.PrintColoredLine(COLOR_CYAN, "Controls: WASD=move, Mouse=look, Space=up, Shift=down, 'S'=sound");
+                } else {
+                    // Clear screen and display header
+                    display.ClearScreen();
+                    display.MoveCursor(1, 1);
+                    display.PrintStyledText(STYLE_BOLD, COLOR_BRIGHT_GREEN, "ASCIILATOR System Test - Press ESC to exit | TAB for 3D view");
+                    display.MoveCursor(2, 1);
+                    display.PrintColoredLine(COLOR_CYAN, "Test: Keys, Mouse buttons (L/R/M), Mouse movement | Press 'I' for clock info | 'S' for sound mode");
+                    
+                    // Display current mode
+                    if (soundTestMode) {
+                        display.PrintColoredLine(COLOR_BRIGHT_MAGENTA, "SOUND TEST MODE: 1-6=Tones (spatial), 7-9=WAV files, 0=Spinning sound | 'S' to switch back");
+                    } else {
+                        display.PrintColoredLine(COLOR_BRIGHT_CYAN, "FPS ADJUST MODE: 1=30fps, 2=60fps, 3=120fps | 'S' for sound testing");
+                    }
+                    
+                    // Clock status display
+                    display.MoveCursor(3, 1);
+                    display.PrintStyledText(STYLE_BOLD, COLOR_BRIGHT_YELLOW, "Clock Status:");
+                    
+                    display.MoveCursor(5, 1);
+                    display.PrintFormatted("Main Loop: %.1f FPS (Target: %d) | Frames: %lu | Uptime: %.1fs",
+                        clockManager.GetCurrentFps(mainLoopClock),
+                        clockManager.GetTargetFps(mainLoopClock),
+                        clockManager.GetTotalFrames(mainLoopClock),
+                        clockManager.GetUptime(mainLoopClock));
+                    
+                    display.MoveCursor(6, 1);
+                    display.PrintFormatted("Display: %.1f FPS | Render: %.1f FPS | Delta: %.3fs",
+                        clockManager.GetCurrentFps(displayClock),
+                        clockManager.GetCurrentFps(renderClock),
+                        clockManager.GetDeltaTime(mainLoopClock));
+                    
+                    // Sound System Status
+                    display.MoveCursor(7, 1);
+                    display.PrintStyledText(STYLE_BOLD, COLOR_BRIGHT_MAGENTA, "Sound System Status:");
+                    display.MoveCursor(8, 1);
+                    if (soundTestMode) {
+                        display.PrintColoredLine(COLOR_BRIGHT_GREEN, "READY - Press 1-6 for tones, 7-9 for WAV files, 0 for spinning demo");
+                    } else {
+                        display.PrintColoredLine(COLOR_BRIGHT_YELLOW, "FPS Mode - Press 'S' to enable sound testing");
+                    }
+                    
+                    // Camera info
+                    display.MoveCursor(9, 1);
+                    display.PrintStyledText(STYLE_BOLD, COLOR_BRIGHT_CYAN, "3D Camera Status:");
+                    display.MoveCursor(10, 1);
+                    display.PrintFormatted("Position: X=%.2f Y=%.2f Z=%.2f | Rotation: Yaw=%.2f Pitch=%.2f", 
+                        camera.x, camera.y, camera.z, camera.yaw, camera.pitch);
+                    
+                    // Separator
+                    display.MoveCursor(11, 1);
+                    display.DrawHorizontalLine(1, 11, 80, '-');
+                    
+                    // Test keyboard input
+                    display.MoveCursor(13, 1);
+                    display.PrintColoredLine(COLOR_BRIGHT_YELLOW, "Keyboard Status:");
+                    input.PrintPressedKeys();
+                    
+                    // Test specific key combinations
+                    if (input.GetKeyMSB(VK_W)) {
+                        display.PrintColoredLine(COLOR_BRIGHT_GREEN, "W key is pressed!");
+                    }
+                    
+                    if (input.GetPressedKeys(2, VK_CONTROL, VK_A)) {
+                        display.PrintColoredLine(COLOR_BRIGHT_RED, "Ctrl+A combination detected!");
+                    }
+                    
+                    // Test mouse input
+                    display.PrintColoredLine(COLOR_BRIGHT_CYAN, "Mouse Status:");
+                    input.PrintMousePosition();
+                    input.PrintMouseButtons();
+                    
+                    // Check for mouse movement
+                    if (input.IsMouseMoved()) {
+                        display.PrintColoredLine(COLOR_BRIGHT_MAGENTA, "Mouse moved!");
+                    }
+                    
+                    // Test specific mouse button combinations
+                    if (input.GetMouseButtonState(VK_LBUTTON) && input.GetMouseButtonState(VK_RBUTTON)) {
+                        display.PrintColoredLine(COLOR_BRIGHT_RED, "Both left and right buttons pressed!");
+                    }
+                    
+                    // Show detailed clock information if requested
+                    if (showDetailedInfo) {
+                        display.MoveCursor(20, 1);
+                        display.DrawHorizontalLine(1, 20, 80, '=');
+                        display.MoveCursor(21, 1);
+                        display.PrintStyledText(STYLE_BOLD, COLOR_BRIGHT_CYAN, "Detailed Clock Information:");
+                        
+                        display.MoveCursor(22, 1);
+                        clockManager.PrintClockInfo(mainLoopClock);
+                        display.MoveCursor(29, 1);
+                        clockManager.PrintClockInfo(displayClock);
+                    }
                 }
+                
+                display.MoveCursor(20, 1);
+                display.PrintFormatted("Sound angle: %f", angle);
             }
         }
-        display.MoveCursor(18, 1);
-        display.PrintFormatted("Sound angle: %f", angle);
+
+        // Toggle between 3D view and system info with TAB key
+        if (input.GetKeyLSB(VK_TAB)) {
+            show3DView = !show3DView;
+        }
 
         // Toggle detailed info with 'I' key
         if (input.GetKeyLSB(VK_I)) {
@@ -147,8 +221,6 @@ DWORD WINAPI ConsoleThread(LPVOID lpParam) {
         
         // Sound testing or FPS adjustment based on mode
         if (soundTestMode) {
-
-
             // Sound testing mode - Number keys 1-9 and 0 for different sounds
             if (input.GetKeyLSB(VK_1) && !soundManager.SoundIsPlaying(1)) {
                 soundManager.SoundKillAll(); // Stop previous sounds
@@ -160,7 +232,6 @@ DWORD WINAPI ConsoleThread(LPVOID lpParam) {
                 soundManager.SoundKillAll();
                 soundManager.SoundWavRepeat(104, "air_raid.wav", 1.0f); // Center
                 soundManager.SoundAngle(104 + 0, angle); // Center
-
             }
 
             if (input.GetKeyLSB(VK_3)) {
@@ -181,8 +252,6 @@ DWORD WINAPI ConsoleThread(LPVOID lpParam) {
                 soundManager.SoundWavTimer(0, "air_raid.wav", 1.0f, 100.0);
                 soundManager.SoundAngle(100 + 0, angle); // Center
             }
-
-
         } else {
             // FPS adjustment mode (original functionality)
             if (input.GetKeyLSB(VK_1)) {

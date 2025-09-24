@@ -142,6 +142,18 @@ void draw_face(face f);
 extern unsigned int save_console_width;
 extern unsigned int save_console_height;
 
+// Mouse sensitivity for camera control
+extern float mouse_sensitivity;
+
+// Camera control functions
+void init_mouse_camera();
+void update_camera_mouse(int mouse_x, int mouse_y);
+void move_camera(bool forward, bool backward, bool left, bool right, bool up, bool down);
+
+// 3D object functions
+vertex rotate_vertex(vertex v, vertex center, float angle_x, float angle_y, float angle_z);
+void draw_rotating_cube(vertex center, float size, float rotation_x, float rotation_y, float rotation_z);
+
 // Main rendering functions
 void output_buffer();
 void geometry_draw();

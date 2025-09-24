@@ -99,8 +99,8 @@ int compare_renderables_by_depth(const void *a, const void *b) {
     return 0;
 }
 
-// Camera system and movement - kept from original
-camera3d camera = {100.0f, -2.5f, 100.0f, 0.0f, -1.5f}; 
+// Camera system and movement - positioned to view cubes
+camera3d camera = {0.0f, 0.0f, -10.0f, 0.0f, 0.0f}; 
 
 // Aspect ratio correction for console character stretching
 float aspect_ratio_width = 1.0f;  
@@ -115,7 +115,7 @@ float diagonal_x, diagonal_y, diagonal_z;
 float horizontal_x, horizontal_y, horizontal_z;
 
 // Movement and turning speeds
-float camera_speed = 0.1f;
+float camera_speed = 0.2f;
 float camera_turn_speed = 0.1f;
 
 // Camera transformation caching
@@ -213,12 +213,15 @@ void draw_dot(dot d) {
                                     camera.yaw, camera.pitch, 90.0f, 
                                     (float)screen_width / (float)screen_height, 0.1f);
     
-    if (projected.z > 0) { // In front of camera
-        // Convert to screen coordinates
-        int screen_x = (int)((projected.x + 1.0f) * 0.5f * screen_width);
-        int screen_y = (int)((1.0f - projected.y) * 0.5f * screen_height);
+    if (projected.z > 0.1f) { // In front of camera
+        // Convert to screen coordinates (scale from -1,1 to 0,screen_size)
+        int screen_x = (int)((projected.x * 0.5f + 0.5f) * screen_width);
+        int screen_y = (int)((0.5f - projected.y * 0.5f) * screen_height);
         
-        set_pixel(screen_x, screen_y, d.ascii, d.color, projected.z);
+        // Clamp to screen bounds
+        if (screen_x >= 0 && screen_x < screen_width && screen_y >= 0 && screen_y < screen_height) {
+            set_pixel(screen_x, screen_y, d.ascii, d.color, projected.z);
+        }
     }
 }
 
@@ -230,12 +233,12 @@ void draw_edge(edge e) {
                                    camera.yaw, camera.pitch, 90.0f, 
                                    (float)screen_width / (float)screen_height, 0.1f);
     
-    if (start_proj.z > 0 || end_proj.z > 0) { // At least one point in front
+    if (start_proj.z > 0.1f && end_proj.z > 0.1f) { // Both points in front
         // Convert to screen coordinates
-        int x1 = (int)((start_proj.x + 1.0f) * 0.5f * screen_width);
-        int y1 = (int)((1.0f - start_proj.y) * 0.5f * screen_height);
-        int x2 = (int)((end_proj.x + 1.0f) * 0.5f * screen_width);
-        int y2 = (int)((1.0f - end_proj.y) * 0.5f * screen_height);
+        int x1 = (int)((start_proj.x * 0.5f + 0.5f) * screen_width);
+        int y1 = (int)((0.5f - start_proj.y * 0.5f) * screen_height);
+        int x2 = (int)((end_proj.x * 0.5f + 0.5f) * screen_width);
+        int y2 = (int)((0.5f - end_proj.y * 0.5f) * screen_height);
         
         // Bresenham's line algorithm
         int dx = abs(x2 - x1);
@@ -290,8 +293,6 @@ void draw_face(face f) {
 
 // Output buffer - simplified without differential rendering for now
 void output_buffer() {
-    // Clear screen
-    system("cls");
     
     // Output buffer contents
     for (int y = 0; y < screen_height; y++) {
@@ -322,3 +323,189 @@ void geometry_draw() {
 // Console size management
 unsigned int save_console_width = 120;
 unsigned int save_console_height = 60;
+
+// Mouse sensitivity for camera control
+float mouse_sensitivity = 0.003f;
+static int last_mouse_x = 0;
+static int last_mouse_y = 0;
+static bool mouse_captured = false;
+
+// Initialize mouse capture for camera control
+void init_mouse_camera() {
+    POINT pt;
+    GetCursorPos(&pt);
+    last_mouse_x = pt.x;
+    last_mouse_y = pt.y;
+    mouse_captured = true;
+}
+
+// Update camera based on mouse movement
+void update_camera_mouse(int mouse_x, int mouse_y) {
+    if (!mouse_captured) return;
+    
+    int delta_x = mouse_x - last_mouse_x;
+    int delta_y = mouse_y - last_mouse_y;
+    
+    // Update camera yaw and pitch
+    camera.yaw += delta_x * mouse_sensitivity;
+    camera.pitch -= delta_y * mouse_sensitivity; // Invert Y axis
+    
+    // Clamp pitch
+    const float MAX_PITCH = 1.5f;
+    if (camera.pitch > MAX_PITCH) camera.pitch = MAX_PITCH;
+    if (camera.pitch < -MAX_PITCH) camera.pitch = -MAX_PITCH;
+    
+    last_mouse_x = mouse_x;
+    last_mouse_y = mouse_y;
+    
+    // Update camera vectors
+    camera_update();
+}
+
+// Move camera based on keyboard input
+void move_camera(bool forward, bool backward, bool left, bool right, bool up, bool down) {
+    if (forward) {
+        camera.x += diagonal_x * camera_speed;
+        camera.y += diagonal_y * camera_speed;
+        camera.z += diagonal_z * camera_speed;
+    }
+    if (backward) {
+        camera.x -= diagonal_x * camera_speed;
+        camera.y -= diagonal_y * camera_speed;
+        camera.z -= diagonal_z * camera_speed;
+    }
+    if (right) {
+        camera.x += horizontal_x * camera_speed;
+        camera.y += horizontal_y * camera_speed;
+        camera.z += horizontal_z * camera_speed;
+    }
+    if (left) {
+        camera.x -= horizontal_x * camera_speed;
+        camera.y -= horizontal_y * camera_speed;
+        camera.z -= horizontal_z * camera_speed;
+    }
+    if (up) {
+        camera.y += camera_speed;
+    }
+    if (down) {
+        camera.y -= camera_speed;
+    }
+}
+
+// Rotate vertex around center point
+vertex rotate_vertex(vertex v, vertex center, float angle_x, float angle_y, float angle_z) {
+    vertex result = v;
+    
+    // Translate to origin
+    result.x -= center.x;
+    result.y -= center.y;
+    result.z -= center.z;
+    
+    // Rotate around X axis
+    float cos_x = cos(angle_x);
+    float sin_x = sin(angle_x);
+    float temp_y = result.y * cos_x - result.z * sin_x;
+    float temp_z = result.y * sin_x + result.z * cos_x;
+    result.y = temp_y;
+    result.z = temp_z;
+    
+    // Rotate around Y axis
+    float cos_y = cos(angle_y);
+    float sin_y = sin(angle_y);
+    float temp_x = result.x * cos_y + result.z * sin_y;
+    temp_z = -result.x * sin_y + result.z * cos_y;
+    result.x = temp_x;
+    result.z = temp_z;
+    
+    // Rotate around Z axis
+    float cos_z = cos(angle_z);
+    float sin_z = sin(angle_z);
+    temp_x = result.x * cos_z - result.y * sin_z;
+    temp_y = result.x * sin_z + result.y * cos_z;
+    result.x = temp_x;
+    result.y = temp_y;
+    
+    // Translate back
+    result.x += center.x;
+    result.y += center.y;
+    result.z += center.z;
+    
+    return result;
+}
+
+// Create a colored cube with rotation
+void draw_rotating_cube(vertex center, float size, float rotation_x, float rotation_y, float rotation_z) {
+    // Define cube vertices (8 corners)
+    vertex cube_vertices[8];
+    float half_size = size * 0.5f;
+    
+    // Create base cube vertices
+    cube_vertices[0] = {center.x - half_size, center.y - half_size, center.z - half_size}; // Front bottom left
+    cube_vertices[1] = {center.x + half_size, center.y - half_size, center.z - half_size}; // Front bottom right
+    cube_vertices[2] = {center.x + half_size, center.y + half_size, center.z - half_size}; // Front top right
+    cube_vertices[3] = {center.x - half_size, center.y + half_size, center.z - half_size}; // Front top left
+    cube_vertices[4] = {center.x - half_size, center.y - half_size, center.z + half_size}; // Back bottom left
+    cube_vertices[5] = {center.x + half_size, center.y - half_size, center.z + half_size}; // Back bottom right
+    cube_vertices[6] = {center.x + half_size, center.y + half_size, center.z + half_size}; // Back top right
+    cube_vertices[7] = {center.x - half_size, center.y + half_size, center.z + half_size}; // Back top left
+    
+    // Rotate all vertices
+    for (int i = 0; i < 8; i++) {
+        cube_vertices[i] = rotate_vertex(cube_vertices[i], center, rotation_x, rotation_y, rotation_z);
+    }
+    
+    // Define cube edges with different colors
+    int cube_edges[][2] = {
+        {0, 1}, {1, 2}, {2, 3}, {3, 0}, // Front face
+        {4, 5}, {5, 6}, {6, 7}, {7, 4}, // Back face
+        {0, 4}, {1, 5}, {2, 6}, {3, 7}  // Connecting edges
+    };
+    
+    // Color scheme for different edge groups
+    int colors[] = {31, 32, 33, 34, 35, 36}; // Red, Green, Yellow, Blue, Magenta, Cyan
+    char ascii_chars[] = {'#', '@', '&', '%', '*', '+'};
+    
+    // Draw all edges
+    for (int i = 0; i < 12; i++) {
+        edge e;
+        e.start = cube_vertices[cube_edges[i][0]];
+        e.end = cube_vertices[cube_edges[i][1]];
+        
+        // Color edges differently based on which face/group they belong to
+        if (i < 4) {
+            e.color = colors[0]; // Front face - red
+            e.ascii = ascii_chars[0];
+        } else if (i < 8) {
+            e.color = colors[1]; // Back face - green
+            e.ascii = ascii_chars[1];
+        } else {
+            e.color = colors[2 + (i % 4)]; // Connecting edges - various colors
+            e.ascii = ascii_chars[2 + (i % 4)];
+        }
+        
+        draw_edge(e);
+    }
+    
+    // Draw cube faces for a more solid look
+    // Front face
+    face front_face;
+    front_face.vertices[0] = cube_vertices[0];
+    front_face.vertices[1] = cube_vertices[1];
+    front_face.vertices[2] = cube_vertices[2];
+    front_face.vertices[3] = cube_vertices[3];
+    front_face.vertex_count = 4;
+    front_face.color = 91; // Bright red
+    front_face.ascii = '.';
+    draw_face(front_face);
+    
+    // Back face
+    face back_face;
+    back_face.vertices[0] = cube_vertices[4];
+    back_face.vertices[1] = cube_vertices[7];
+    back_face.vertices[2] = cube_vertices[6];
+    back_face.vertices[3] = cube_vertices[5];
+    back_face.vertex_count = 4;
+    back_face.color = 92; // Bright green
+    back_face.ascii = ':';
+    draw_face(back_face);
+}
