@@ -99,33 +99,43 @@ typedef struct {
 
 extern AudioSystem g_audioSystem;
 
-bool audio_init(void);
-void audio_shutdown(void);
+// Sound Manager Class
+class SoundManager {
+public:
+    // Audio System Methods
+    bool AudioInit(void);
+    void AudioShutdown(void);
 
-int sound_timer(int id, double frequency, float amplitude, double phase, double duration_seconds);
-int sound_static(int id, double frequency, float amplitude, double phase);
-int sound_starter_timer(int id, double frequency, float amplitude, double phase, double duration_seconds, double start_delay_seconds);
-int sound_starter_static(int id, double frequency, float amplitude, double phase, double start_delay_seconds);
-void sound_kill(int id);
-void sound_kill_all(void);
+    // Sound Generation Methods
+    int SoundTimer(int id, double frequency, float amplitude, double phase, double duration_seconds);
+    int SoundStatic(int id, double frequency, float amplitude, double phase);
+    int SoundStarterTimer(int id, double frequency, float amplitude, double phase, double duration_seconds, double start_delay_seconds);
+    int SoundStarterStatic(int id, double frequency, float amplitude, double phase, double start_delay_seconds);
+    void SoundKill(int id);
+    void SoundKillAll(void);
 
-void sound_angle(int id, float angle);
-void sound_reverb(int id, float amount, float decay);
+    // Sound Effects Methods
+    void SoundAngle(int id, float angle);
+    void SoundReverb(int id, float amount, float decay);
 
-int audio_play_tone(double frequency, float gain);
-void audio_stop_sound(int sound_id);
-void audio_stop_all_sounds(void);
+    // Audio Control Methods
+    int AudioPlayTone(double frequency, float gain);
+    void AudioStopSound(int sound_id);
+    void AudioStopAllSounds(void);
 
-int sound_wav_timer(int id, const char* filename, float amplitude, double duration_seconds);
-int sound_wav_repeat(int id, const char* filename, float amplitude);
-int sound_wav_starter_timer(int id, const char* filename, float amplitude, double duration_seconds, double start_delay_seconds);
-int sound_wav_starter_repeat(int id, const char* filename, float amplitude, double start_delay_seconds);
-void sound_wav_kill(int id);
-void sound_wav_kill_all(void);
-void sound_wav_set_amplitude(int id, float amplitude);
+    // WAV File Methods
+    int SoundWavTimer(int id, const char* filename, float amplitude, double duration_seconds);
+    int SoundWavRepeat(int id, const char* filename, float amplitude);
+    int SoundWavStarterTimer(int id, const char* filename, float amplitude, double duration_seconds, double start_delay_seconds);
+    int SoundWavStarterRepeat(int id, const char* filename, float amplitude, double start_delay_seconds);
+    void SoundWavKill(int id);
+    void SoundWavKillAll(void);
+    void SoundWavSetAmplitude(int id, float amplitude);
 
-bool load_wav_file(const char* filename);
-void unload_wav_file(const char* filename);
-void unload_all_wav_files(void);
+    // WAV File Management Methods
+    bool LoadWavFile(const char* filename);
+    void UnloadWavFile(const char* filename);
+    void UnloadAllWavFiles(void);
+};
 
 #endif // SOUND_HPP

@@ -2,7 +2,13 @@
 
 AudioSystem g_audioSystem = {0};
 
+// Forward declarations for functions used in audio_init and audio_shutdown
 extern void generate_mixed_audio(short* buffer, int buffer_size);
+int sound_static(int id, double frequency, float amplitude, double phase);
+void sound_angle(int id, float angle);
+void audio_stop_all_sounds(void);
+void sound_wav_kill_all(void);
+void unload_all_wav_files(void);
 
 static DWORD WINAPI audio_thread_proc(LPVOID lpParam) {
     printf("Audio thread started\n");
@@ -1325,4 +1331,121 @@ void sound_wav_set_amplitude(int id, float amplitude) {
     }
     
     LeaveCriticalSection(&g_audioSystem.wavLock);
+}
+
+////////////////////// SoundManager Class Implementation //////////////////////
+
+////////////////////// Initialize audio system
+bool SoundManager::AudioInit(void) {
+    return audio_init();
+}
+
+////////////////////// Shutdown audio system
+void SoundManager::AudioShutdown(void) {
+    audio_shutdown();
+}
+
+////////////////////// Create a timed sound with specified parameters
+int SoundManager::SoundTimer(int id, double frequency, float amplitude, double phase, double duration_seconds) {
+    return sound_timer(id, frequency, amplitude, phase, duration_seconds);
+}
+
+////////////////////// Create a static (continuous) sound with specified parameters
+int SoundManager::SoundStatic(int id, double frequency, float amplitude, double phase) {
+    return sound_static(id, frequency, amplitude, phase);
+}
+
+////////////////////// Create a timed sound with a start delay
+int SoundManager::SoundStarterTimer(int id, double frequency, float amplitude, double phase, double duration_seconds, double start_delay_seconds) {
+    return sound_starter_timer(id, frequency, amplitude, phase, duration_seconds, start_delay_seconds);
+}
+
+////////////////////// Create a static sound with a start delay
+int SoundManager::SoundStarterStatic(int id, double frequency, float amplitude, double phase, double start_delay_seconds) {
+    return sound_starter_static(id, frequency, amplitude, phase, start_delay_seconds);
+}
+
+////////////////////// Stop a specific sound by ID
+void SoundManager::SoundKill(int id) {
+    sound_kill(id);
+}
+
+////////////////////// Stop all active sounds
+void SoundManager::SoundKillAll(void) {
+    sound_kill_all();
+}
+
+////////////////////// Set the stereo angle for a sound
+void SoundManager::SoundAngle(int id, float angle) {
+    sound_angle(id, angle);
+}
+
+////////////////////// Set reverb effect for a sound
+void SoundManager::SoundReverb(int id, float amount, float decay) {
+    sound_reverb(id, amount, decay);
+}
+
+////////////////////// Play a simple tone
+int SoundManager::AudioPlayTone(double frequency, float gain) {
+    return audio_play_tone(frequency, gain);
+}
+
+////////////////////// Stop a specific audio sound
+void SoundManager::AudioStopSound(int sound_id) {
+    audio_stop_sound(sound_id);
+}
+
+////////////////////// Stop all audio sounds
+void SoundManager::AudioStopAllSounds(void) {
+    audio_stop_all_sounds();
+}
+
+////////////////////// Play a WAV file for a specified duration
+int SoundManager::SoundWavTimer(int id, const char* filename, float amplitude, double duration_seconds) {
+    return sound_wav_timer(id, filename, amplitude, duration_seconds);
+}
+
+////////////////////// Play a WAV file on repeat
+int SoundManager::SoundWavRepeat(int id, const char* filename, float amplitude) {
+    return sound_wav_repeat(id, filename, amplitude);
+}
+
+////////////////////// Play a WAV file for a specified duration with a start delay
+int SoundManager::SoundWavStarterTimer(int id, const char* filename, float amplitude, double duration_seconds, double start_delay_seconds) {
+    return sound_wav_starter_timer(id, filename, amplitude, duration_seconds, start_delay_seconds);
+}
+
+////////////////////// Play a WAV file on repeat with a start delay
+int SoundManager::SoundWavStarterRepeat(int id, const char* filename, float amplitude, double start_delay_seconds) {
+    return sound_wav_starter_repeat(id, filename, amplitude, start_delay_seconds);
+}
+
+////////////////////// Stop a specific WAV sound by ID
+void SoundManager::SoundWavKill(int id) {
+    sound_wav_kill(id);
+}
+
+////////////////////// Stop all active WAV sounds
+void SoundManager::SoundWavKillAll(void) {
+    sound_wav_kill_all();
+}
+
+////////////////////// Set the amplitude of a WAV sound
+void SoundManager::SoundWavSetAmplitude(int id, float amplitude) {
+    sound_wav_set_amplitude(id, amplitude);
+}
+
+////////////////////// Load a WAV file into memory
+bool SoundManager::LoadWavFile(const char* filename) {
+    return load_wav_file(filename);
+}
+
+////////////////////// Unload a specific WAV file from memory
+void SoundManager::UnloadWavFile(const char* filename) {
+    unload_wav_file(filename);
+}
+
+////////////////////// Unload all WAV files from memory
+void SoundManager::UnloadAllWavFiles(void) {
+    unload_all_wav_files();
 }

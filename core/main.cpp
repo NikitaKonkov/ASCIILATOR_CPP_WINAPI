@@ -6,27 +6,28 @@
 
 // Thread function
 DWORD WINAPI ConsoleThread(LPVOID lpParam) {
-    // Create DisplayManager, InputManager, and ClockManager instances
+    // Create DisplayManager, InputManager, ClockManager, and SoundManager instances
     DisplayManager display;
     InputManager input;
     ClockManager clockManager;
+    SoundManager soundManager;
     
     // Initialize sound system
-    if (!audio_init()) {
+    if (!soundManager.AudioInit()) {
         display.PrintColoredLine(COLOR_BRIGHT_RED, "ERROR: Failed to initialize audio system!");
         return 1;
     }
     display.PrintColoredLine(COLOR_BRIGHT_GREEN, "Audio system initialized successfully!");
     
     // Load test WAV files
-    load_wav_file("ahem_x.wav");
-    load_wav_file("air_raid.wav");
-    load_wav_file("airplane_chime_x.wav");
+    soundManager.LoadWavFile("ahem_x.wav");
+    soundManager.LoadWavFile("air_raid.wav");
+    soundManager.LoadWavFile("airplane_chime_x.wav");
     
     // Create different clocks for different purposes
     int mainLoopClock = clockManager.CreateClock(60, "MainLoop");     // 60 FPS main loop
     int displayClock = clockManager.CreateClock(30, "Display");       // 30 FPS display updates
-    int inputClock = clockManager.CreateClock(120, "Input");          // 120 FPS input polling
+    int inputClock = clockManager.CreateClock(360, "Input");          // 360 FPS input polling
     
     // Performance counters
     int frameCount = 0;
@@ -142,72 +143,72 @@ DWORD WINAPI ConsoleThread(LPVOID lpParam) {
             // Toggle sound test mode with 'S' key
             if (input.GetKeyLSB(VK_S)) {
                 soundTestMode = !soundTestMode;
-                sound_kill_all(); // Stop all sounds when switching modes
-                sound_wav_kill_all();
+                soundManager.SoundKillAll(); // Stop all sounds when switching modes
+                soundManager.SoundWavKillAll();
             }
             
             // Sound testing or FPS adjustment based on mode
             if (soundTestMode) {
                 // Sound testing mode - Number keys 1-9 and 0 for different sounds
                 if (input.GetKeyLSB(VK_1)) {
-                    sound_kill_all(); // Stop previous sounds
-                    sound_timer(1, 261.63, 0.8f, 0.0, 2.0); // C4 note
-                    sound_angle(1, 0.0f); // Center
+                    soundManager.SoundKillAll(); // Stop previous sounds
+                    soundManager.SoundTimer(1, 261.63, 0.8f, 0.0, 2.0); // C4 note
+                    soundManager.SoundAngle(1, 0.0f); // Center
                 }
                 if (input.GetKeyLSB(VK_2)) {
-                    sound_kill_all();
-                    sound_timer(2, 293.66, 0.8f, 0.0, 2.0); // D4 note
-                    sound_angle(2, 45.0f); // Front-right
+                    soundManager.SoundKillAll();
+                    soundManager.SoundTimer(2, 293.66, 0.8f, 0.0, 2.0); // D4 note
+                    soundManager.SoundAngle(2, 45.0f); // Front-right
                 }
                 if (input.GetKeyLSB(VK_3)) {
-                    sound_kill_all();
-                    sound_timer(3, 329.63, 0.8f, 0.0, 2.0); // E4 note
-                    sound_angle(3, 90.0f); // Right
+                    soundManager.SoundKillAll();
+                    soundManager.SoundTimer(3, 329.63, 0.8f, 0.0, 2.0); // E4 note
+                    soundManager.SoundAngle(3, 90.0f); // Right
                 }
                 if (input.GetKeyLSB(VK_4)) {
-                    sound_kill_all();
-                    sound_timer(4, 349.23, 0.8f, 0.0, 2.0); // F4 note
-                    sound_angle(4, 135.0f); // Back-right
+                    soundManager.SoundKillAll();
+                    soundManager.SoundTimer(4, 349.23, 0.8f, 0.0, 2.0); // F4 note
+                    soundManager.SoundAngle(4, 135.0f); // Back-right
                 }
                 if (input.GetKeyLSB(VK_5)) {
-                    sound_kill_all();
-                    sound_timer(5, 392.00, 0.8f, 0.0, 2.0); // G4 note
-                    sound_angle(5, 180.0f); // Behind
+                    soundManager.SoundKillAll();
+                    soundManager.SoundTimer(5, 392.00, 0.8f, 0.0, 2.0); // G4 note
+                    soundManager.SoundAngle(5, 180.0f); // Behind
                 }
                 if (input.GetKeyLSB(VK_6)) {
-                    sound_kill_all();
-                    sound_timer(6, 440.00, 0.8f, 0.0, 2.0); // A4 note
-                    sound_angle(6, 225.0f); // Back-left
+                    soundManager.SoundKillAll();
+                    soundManager.SoundTimer(6, 440.00, 0.8f, 0.0, 2.0); // A4 note
+                    soundManager.SoundAngle(6, 225.0f); // Back-left
                 }
                 if (input.GetKeyLSB(VK_7)) {
-                    sound_wav_kill_all();
-                    sound_wav_timer(7, "ahem_x.wav", 1.0f, 3.0);
-                    sound_angle(100 + 7, 270.0f); // Left
+                    soundManager.SoundWavKillAll();
+                    soundManager.SoundWavTimer(7, "ahem_x.wav", 1.0f, 3.0);
+                    soundManager.SoundAngle(100 + 7, 270.0f); // Left
                 }
                 if (input.GetKeyLSB(VK_8)) {
-                    sound_wav_kill_all();
-                    sound_wav_timer(8, "air_raid.wav", 1.0f, 5.0);
-                    sound_angle(100 + 8, 315.0f); // Front-left
+                    soundManager.SoundWavKillAll();
+                    soundManager.SoundWavTimer(8, "air_raid.wav", 1.0f, 5.0);
+                    soundManager.SoundAngle(100 + 8, 315.0f); // Front-left
                 }
                 if (input.GetKeyLSB(VK_9)) {
-                    sound_wav_kill_all();
-                    sound_wav_timer(9, "airplane_chime_x.wav", 1.0f, 4.0);
-                    sound_angle(100 + 9, 0.0f); // Center
+                    soundManager.SoundWavKillAll();
+                    soundManager.SoundWavTimer(9, "airplane_chime_x.wav", 1.0f, 4.0);
+                    soundManager.SoundAngle(100 + 9, 0.0f); // Center
                 }
                 if (input.GetKeyLSB(VK_0)) {
                     // Special test: spinning sound
-                    sound_kill_all();
-                    sound_wav_kill_all();
+                    soundManager.SoundKillAll();
+                    soundManager.SoundWavKillAll();
                     static int spinSound = -1;
                     static float spinAngle = 0.0f;
                     
                     if (spinSound == -1) {
-                        spinSound = sound_static(10, 523.25, 0.6f, 0.0); // C5 note
+                        spinSound = soundManager.SoundStatic(10, 523.25, 0.6f, 0.0); // C5 note
                     }
                     
                     spinAngle += 10.0f;
                     if (spinAngle >= 360.0f) spinAngle = 0.0f;
-                    sound_angle(10, spinAngle);
+                    soundManager.SoundAngle(10, spinAngle);
                 }
             } else {
                 // FPS adjustment mode (original functionality)
@@ -245,9 +246,9 @@ DWORD WINAPI ConsoleThread(LPVOID lpParam) {
     }
     
     // Cleanup audio system
-    sound_kill_all();
-    sound_wav_kill_all();
-    audio_shutdown();
+    soundManager.SoundKillAll();
+    soundManager.SoundWavKillAll();
+    soundManager.AudioShutdown();
     display.PrintColoredLine(COLOR_BRIGHT_YELLOW, "Audio system shutdown complete.");
     
     return 0;
