@@ -227,10 +227,26 @@ static inline void calculate_stereo_amplitudes(float angle, float* left_amp, flo
     angle = fmodf(angle, 360.0f);
     if (angle < 0) angle += 360.0f;
     
+    // Your desired mapping: 0°/360° = behind, 90° = right, 180° = front, 270° = left
+    
     float rad = ANGLE_TO_RADIANS(angle);
     
-    *right_amp = (cosf(rad - PI/2) + 1.0f) * 0.5f;
-    *left_amp = (sinf(rad - PI/2) + 1.0f) * 0.5f;
+    // Calculate left-right positioning using sine 
+    // sin(90°) = 1 (right side), sin(270°) = -1 (left side)
+    float lr_component = sinf(rad);  
+    
+    // Calculate front-back positioning using cosine
+    // cos(180°) = -1 (front), cos(0°) = 1 (back)  
+    float fb_component = cosf(rad);  
+    
+    // Apply front-back attenuation (sounds behind are quieter)
+    float distance_factor = (fb_component > 0) ? 0.3f : 1.0f;
+    
+    // Calculate stereo amplitudes
+    // When lr_component > 0 (right side), favor right ear
+    // When lr_component < 0 (left side), favor left ear  
+    *right_amp = (0.5f + lr_component * 0.5f) * distance_factor;  // More right when lr_component is positive
+    *left_amp = (0.5f - lr_component * 0.5f) * distance_factor;   // More left when lr_component is negative
     
     if (*left_amp < 0) *left_amp = 0;
     if (*right_amp < 0) *right_amp = 0;
@@ -1385,6 +1401,19 @@ void SoundManager::SoundReverb(int id, float amount, float decay) {
     sound_reverb(id, amount, decay);
 }
 
+////////////////////// Check if a sound is currently playing
+bool SoundManager::SoundIsPlaying(int id) {
+    if (id < 0 || id >= MAX_SOUNDS) {
+        return false;
+    }
+    
+    EnterCriticalSection(&g_audioSystem.soundLock);
+    bool is_playing = g_audioSystem.sounds[id].active;
+    LeaveCriticalSection(&g_audioSystem.soundLock);
+    
+    return is_playing;
+}
+
 ////////////////////// Play a simple tone
 int SoundManager::AudioPlayTone(double frequency, float gain) {
     return audio_play_tone(frequency, gain);
@@ -1433,6 +1462,19 @@ void SoundManager::SoundWavKillAll(void) {
 ////////////////////// Set the amplitude of a WAV sound
 void SoundManager::SoundWavSetAmplitude(int id, float amplitude) {
     sound_wav_set_amplitude(id, amplitude);
+}
+
+////////////////////// Check if a WAV sound is currently playing
+bool SoundManager::SoundWavIsPlaying(int id) {
+    if (id < 0 || id >= MAX_WAV_SOUNDS) {
+        return false;
+    }
+    
+    EnterCriticalSection(&g_audioSystem.wavLock);
+    bool is_playing = g_audioSystem.wav_sounds[id].active;
+    LeaveCriticalSection(&g_audioSystem.wavLock);
+    
+    return is_playing;
 }
 
 ////////////////////// Load a WAV file into memory

@@ -4,6 +4,9 @@
 #include "clock/clock.hpp"
 #include "sound/sound.hpp"
 
+static float angle = 0.0f;
+
+
 // Thread function
 DWORD WINAPI ConsoleThread(LPVOID lpParam) {
     // Create DisplayManager, InputManager, ClockManager, and SoundManager instances
@@ -26,8 +29,7 @@ DWORD WINAPI ConsoleThread(LPVOID lpParam) {
     
     // Create different clocks for different purposes
     int mainLoopClock = clockManager.CreateClock(60, "MainLoop");     // 60 FPS main loop
-    int displayClock = clockManager.CreateClock(30, "Display");       // 30 FPS display updates
-    int inputClock = clockManager.CreateClock(360, "Input");          // 360 FPS input polling
+    int displayClock = clockManager.CreateClock(1, "Display");       // 1 FPS display updates
     
     // Performance counters
     int frameCount = 0;
@@ -70,7 +72,6 @@ DWORD WINAPI ConsoleThread(LPVOID lpParam) {
                 display.MoveCursor(6, 1);
                 display.PrintFormatted("Display: %.1f FPS | Input: %.1f FPS | Delta: %.3fs",
                     clockManager.GetCurrentFps(displayClock),
-                    clockManager.GetCurrentFps(inputClock),
                     clockManager.GetDeltaTime(mainLoopClock));
                 
                 // Sound System Status
@@ -127,122 +128,87 @@ DWORD WINAPI ConsoleThread(LPVOID lpParam) {
                     clockManager.PrintClockInfo(mainLoopClock);
                     display.MoveCursor(27, 1);
                     clockManager.PrintClockInfo(displayClock);
-                    display.MoveCursor(34, 1);
-                    clockManager.PrintClockInfo(inputClock);
                 }
             }
         }
+        display.MoveCursor(18, 1);
+        display.PrintFormatted("Sound angle: %f", angle);
+
+        // Toggle detailed info with 'I' key
+        if (input.GetKeyLSB(VK_I)) {
+            showDetailedInfo = !showDetailedInfo;
+        }
         
-        // High-frequency input polling (120 FPS)
-        if (clockManager.SyncClock(inputClock)) {
-            // Toggle detailed info with 'I' key
-            if (input.GetKeyLSB(VK_I)) {
-                showDetailedInfo = !showDetailedInfo;
+        // Toggle sound test mode with 'S' key
+        if (input.GetKeyLSB(VK_S)) {
+            soundTestMode = !soundTestMode;
+            soundManager.SoundKillAll(); // Stop all sounds when switching modes
+            soundManager.SoundWavKillAll();
+        }
+        
+        // Sound testing or FPS adjustment based on mode
+        if (soundTestMode) {
+
+
+            // Sound testing mode - Number keys 1-9 and 0 for different sounds
+            if (input.GetKeyLSB(VK_1) && !soundManager.SoundIsPlaying(1)) {
+                soundManager.SoundKillAll(); // Stop previous sounds
+                soundManager.SoundTimer(1, 261.63, 0.8f, 0.0, 5.0); // C4 note
+                soundManager.SoundTimer(2, 293.66, 0.8f, 0.0, 7.0); // D4 note
+                soundManager.SoundTimer(3, 329.63, 0.8f, 0.0, 9.0); // E4 note
             }
-            
-            // Toggle sound test mode with 'S' key
-            if (input.GetKeyLSB(VK_S)) {
-                soundTestMode = !soundTestMode;
-                soundManager.SoundKillAll(); // Stop all sounds when switching modes
+            if (input.GetKeyLSB(VK_2) && !soundManager.SoundIsPlaying(4)) {
+                soundManager.SoundKillAll();
+                soundManager.SoundStarterStatic(4, 440.0, 1.0f, 0.0, 0.0); // Center
+            }
+
+            if (input.GetKeyLSB(VK_3)) {
+                soundManager.SoundKillAll();
+            }
+
+            if (input.GetKeyLSB(VK_8)) {
+                angle -= 1.0f;
+                soundManager.SoundAngle(100 + 0, angle); // Center
+            }
+            if (input.GetKeyLSB(VK_9)) {
+                angle += 1.0f;
+                soundManager.SoundAngle(100 + 0, angle); // Center
+            }
+            if (input.GetKeyLSB(VK_0)) {
                 soundManager.SoundWavKillAll();
+                soundManager.SoundWavTimer(0, "air_raid.wav", 1.0f, 100.0);
+                soundManager.SoundAngle(100 + 0, angle); // Center
             }
-            
-            // Sound testing or FPS adjustment based on mode
-            if (soundTestMode) {
-                // Sound testing mode - Number keys 1-9 and 0 for different sounds
-                if (input.GetKeyLSB(VK_1)) {
-                    soundManager.SoundKillAll(); // Stop previous sounds
-                    soundManager.SoundTimer(1, 261.63, 0.8f, 0.0, 2.0); // C4 note
-                    soundManager.SoundAngle(1, 0.0f); // Center
-                }
-                if (input.GetKeyLSB(VK_2)) {
-                    soundManager.SoundKillAll();
-                    soundManager.SoundTimer(2, 293.66, 0.8f, 0.0, 2.0); // D4 note
-                    soundManager.SoundAngle(2, 45.0f); // Front-right
-                }
-                if (input.GetKeyLSB(VK_3)) {
-                    soundManager.SoundKillAll();
-                    soundManager.SoundTimer(3, 329.63, 0.8f, 0.0, 2.0); // E4 note
-                    soundManager.SoundAngle(3, 90.0f); // Right
-                }
-                if (input.GetKeyLSB(VK_4)) {
-                    soundManager.SoundKillAll();
-                    soundManager.SoundTimer(4, 349.23, 0.8f, 0.0, 2.0); // F4 note
-                    soundManager.SoundAngle(4, 135.0f); // Back-right
-                }
-                if (input.GetKeyLSB(VK_5)) {
-                    soundManager.SoundKillAll();
-                    soundManager.SoundTimer(5, 392.00, 0.8f, 0.0, 2.0); // G4 note
-                    soundManager.SoundAngle(5, 180.0f); // Behind
-                }
-                if (input.GetKeyLSB(VK_6)) {
-                    soundManager.SoundKillAll();
-                    soundManager.SoundTimer(6, 440.00, 0.8f, 0.0, 2.0); // A4 note
-                    soundManager.SoundAngle(6, 225.0f); // Back-left
-                }
-                if (input.GetKeyLSB(VK_7)) {
-                    soundManager.SoundWavKillAll();
-                    soundManager.SoundWavTimer(7, "ahem_x.wav", 1.0f, 3.0);
-                    soundManager.SoundAngle(100 + 7, 270.0f); // Left
-                }
-                if (input.GetKeyLSB(VK_8)) {
-                    soundManager.SoundWavKillAll();
-                    soundManager.SoundWavTimer(8, "air_raid.wav", 1.0f, 5.0);
-                    soundManager.SoundAngle(100 + 8, 315.0f); // Front-left
-                }
-                if (input.GetKeyLSB(VK_9)) {
-                    soundManager.SoundWavKillAll();
-                    soundManager.SoundWavTimer(9, "airplane_chime_x.wav", 1.0f, 4.0);
-                    soundManager.SoundAngle(100 + 9, 0.0f); // Center
-                }
-                if (input.GetKeyLSB(VK_0)) {
-                    // Special test: spinning sound
-                    soundManager.SoundKillAll();
-                    soundManager.SoundWavKillAll();
-                    static int spinSound = -1;
-                    static float spinAngle = 0.0f;
-                    
-                    if (spinSound == -1) {
-                        spinSound = soundManager.SoundStatic(10, 523.25, 0.6f, 0.0); // C5 note
-                    }
-                    
-                    spinAngle += 10.0f;
-                    if (spinAngle >= 360.0f) spinAngle = 0.0f;
-                    soundManager.SoundAngle(10, spinAngle);
-                }
-            } else {
-                // FPS adjustment mode (original functionality)
-                if (input.GetKeyLSB(VK_1)) {
-                    clockManager.SetClockFps(mainLoopClock, 30);
-                    clockManager.ResetCounters(mainLoopClock);
-                }
-                if (input.GetKeyLSB(VK_2)) {
-                    clockManager.SetClockFps(mainLoopClock, 60);
-                    clockManager.ResetCounters(mainLoopClock);
-                }
-                if (input.GetKeyLSB(VK_3)) {
-                    clockManager.SetClockFps(mainLoopClock, 120);
-                    clockManager.ResetCounters(mainLoopClock);
-                }
+
+
+        } else {
+            // FPS adjustment mode (original functionality)
+            if (input.GetKeyLSB(VK_1)) {
+                clockManager.SetClockFps(mainLoopClock, 30);
+                clockManager.ResetCounters(mainLoopClock);
             }
-            
-            // Check for exit condition
-            if (input.GetKeyMSB(VK_ESCAPE)) {
-                // Show final statistics
-                display.MoveCursor(25, 1);
-                display.PrintStyledText(STYLE_BOLD, COLOR_BRIGHT_RED, "ESC pressed - Showing final statistics...");
-                
-                display.MoveCursor(27, 1);
-                display.PrintStyledText(STYLE_BOLD, COLOR_BRIGHT_WHITE, "Final Clock Statistics:");
-                clockManager.ListAllClocks();
-                
-                Sleep(3000); // Show stats for 3 seconds
-                break;
+            if (input.GetKeyLSB(VK_2)) {
+                clockManager.SetClockFps(mainLoopClock, 60);
+                clockManager.ResetCounters(mainLoopClock);
+            }
+            if (input.GetKeyLSB(VK_3)) {
+                clockManager.SetClockFps(mainLoopClock, 120);
+                clockManager.ResetCounters(mainLoopClock);
             }
         }
         
-        // Small sleep to prevent excessive CPU usage
-        Sleep(1);
+        // Check for exit condition
+        if (input.GetKeyMSB(VK_ESCAPE)) {
+            // Show final statistics
+            display.MoveCursor(25, 1);
+            display.PrintStyledText(STYLE_BOLD, COLOR_BRIGHT_RED, "ESC pressed - Showing final statistics...");
+            
+            display.MoveCursor(27, 1);
+            display.PrintStyledText(STYLE_BOLD, COLOR_BRIGHT_WHITE, "Final Clock Statistics:");
+            clockManager.ListAllClocks();
+            
+            break;
+        }
     }
     
     // Cleanup audio system
@@ -264,39 +230,6 @@ int main() {
     
     // Create a clock for main thread operations
     int mainThreadClock = clockManager.CreateClock(1, "MainThread"); // 1 FPS for main thread updates
-    
-    display.SetTitle("ASCIILATOR System Test - Input, Display & Clock Integration");
-
-    // Clear console and show initial message
-    display.ClearScreen();
-    display.PrintStyledText(STYLE_BOLD, COLOR_BRIGHT_BLUE, "ASCIILATOR System Integration Test");
-    display.PrintLine("");
-    display.PrintColoredLine(COLOR_BRIGHT_WHITE, "Features demonstrated:");
-    display.PrintColored(COLOR_BRIGHT_GREEN, "  • Input System: ");
-    display.PrintLine("Keyboard and mouse detection");
-    display.PrintColored(COLOR_BRIGHT_CYAN, "  • Display System: ");
-    display.PrintLine("ANSI colors, cursor control, text formatting");
-    display.PrintColored(COLOR_BRIGHT_YELLOW, "  • Clock System: ");
-    display.PrintLine("Multi-clock FPS management and timing");
-    display.PrintColored(COLOR_BRIGHT_MAGENTA, "  • Sound System: ");
-    display.PrintLine("360° stereo audio with tones and WAV playback");
-    display.PrintLine("");
-    
-    display.PrintColoredLine(COLOR_BRIGHT_WHITE, "Interactive Controls:");
-    display.PrintLine("  • ESC: Exit application");
-    display.PrintLine("  • I: Toggle detailed clock information");
-    display.PrintLine("  • S: Toggle between FPS adjustment and sound testing");
-    display.PrintLine("  • FPS Mode - 1/2/3: Set main loop to 30/60/120 FPS");
-    display.PrintLine("  • Sound Mode - 1-6: Musical tones with spatial positioning");
-    display.PrintLine("  • Sound Mode - 7-9: WAV file playback (ahem, air_raid, airplane)");
-    display.PrintLine("  • Sound Mode - 0: Spinning stereo sound demo");
-    display.PrintLine("  • W/WASD: Test key detection");
-    display.PrintLine("  • Ctrl+A: Test key combinations");
-    display.PrintLine("  • Mouse: Move and click to test mouse input");
-    display.PrintLine("");
-    
-    display.PrintColoredLine(COLOR_BRIGHT_MAGENTA, "Starting system monitoring thread...");
-    display.PrintLine("Note: The test will run in this console. All systems are integrated.");
 
     // Create the thread
     hThread = CreateThread(NULL, 0, ConsoleThread, NULL, 0, &threadId);
@@ -332,8 +265,6 @@ int main() {
     display.MoveCursor(13, 20);
     display.PrintLine("Thank you for testing ASCIILATOR!");
     
-    // Wait a moment before exiting
-    Sleep(3000);
 
     return 0;
 }

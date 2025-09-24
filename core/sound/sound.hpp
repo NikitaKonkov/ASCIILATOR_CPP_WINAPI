@@ -117,6 +117,7 @@ public:
     // Sound Effects Methods
     void SoundAngle(int id, float angle);
     void SoundReverb(int id, float amount, float decay);
+    bool SoundIsPlaying(int id);
 
     // Audio Control Methods
     int AudioPlayTone(double frequency, float gain);
@@ -131,6 +132,7 @@ public:
     void SoundWavKill(int id);
     void SoundWavKillAll(void);
     void SoundWavSetAmplitude(int id, float amplitude);
+    bool SoundWavIsPlaying(int id);
 
     // WAV File Management Methods
     bool LoadWavFile(const char* filename);
