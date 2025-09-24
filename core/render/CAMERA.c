@@ -3,7 +3,7 @@
 #include "windows.h"
 #include "stdio.h"
 #include <time.h>
-#include "../render/RENDER.h"
+#include "render.hpp"
 #include "CAMERA.h"
 
 // Start camera back from origin

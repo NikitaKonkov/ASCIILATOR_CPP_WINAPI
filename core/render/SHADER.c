@@ -1,7 +1,7 @@
 #include <math.h>
 #include <stdlib.h>
 #include "SHADER.h"
-#include "../camera/CAMERA.h"
+#include "CAMERA.h"
 
 float edge_distance_calc(vertex start, vertex end) {
     // Calculate Euclidean distance between two vertices

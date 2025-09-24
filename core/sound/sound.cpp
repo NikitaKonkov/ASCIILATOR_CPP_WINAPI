@@ -1349,6 +1349,25 @@ void sound_wav_set_amplitude(int id, float amplitude) {
     LeaveCriticalSection(&g_audioSystem.wavLock);
 }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 ////////////////////// SoundManager Class Implementation //////////////////////
 
 ////////////////////// Initialize audio system

@@ -29,7 +29,7 @@ DWORD WINAPI ConsoleThread(LPVOID lpParam) {
     
     // Create different clocks for different purposes
     int mainLoopClock = clockManager.CreateClock(60, "MainLoop");     // 60 FPS main loop
-    int displayClock = clockManager.CreateClock(1, "Display");       // 1 FPS display updates
+    int displayClock = clockManager.CreateClock(2, "Display");       // 2 FPS display updates
     
     // Performance counters
     int frameCount = 0;
@@ -47,6 +47,7 @@ DWORD WINAPI ConsoleThread(LPVOID lpParam) {
                 display.ClearScreen();
                 display.MoveCursor(1, 1);
                 display.PrintStyledText(STYLE_BOLD, COLOR_BRIGHT_GREEN, "ASCIILATOR System Test - Press ESC to exit");
+                display.MoveCursor(2, 1);
                 display.PrintColoredLine(COLOR_CYAN, "Test: Keys, Mouse buttons (L/R/M), Mouse movement | Press 'I' for clock info | 'S' for sound mode");
                 
                 // Display current mode
@@ -58,8 +59,6 @@ DWORD WINAPI ConsoleThread(LPVOID lpParam) {
                 
                 // Clock status display
                 display.MoveCursor(3, 1);
-                display.DrawHorizontalLine(1, 3, 80, '=');
-                display.MoveCursor(4, 1);
                 display.PrintStyledText(STYLE_BOLD, COLOR_BRIGHT_YELLOW, "Clock Status:");
                 
                 display.MoveCursor(5, 1);
@@ -157,13 +156,16 @@ DWORD WINAPI ConsoleThread(LPVOID lpParam) {
                 soundManager.SoundTimer(2, 293.66, 0.8f, 0.0, 7.0); // D4 note
                 soundManager.SoundTimer(3, 329.63, 0.8f, 0.0, 9.0); // E4 note
             }
-            if (input.GetKeyLSB(VK_2) && !soundManager.SoundIsPlaying(4)) {
+            if (input.GetKeyLSB(VK_2) && !soundManager.SoundIsPlaying(104)) {
                 soundManager.SoundKillAll();
-                soundManager.SoundStarterStatic(4, 440.0, 1.0f, 0.0, 0.0); // Center
+                soundManager.SoundWavRepeat(104, "air_raid.wav", 1.0f); // Center
+                soundManager.SoundAngle(104 + 0, angle); // Center
+
             }
 
             if (input.GetKeyLSB(VK_3)) {
                 soundManager.SoundKillAll();
+                soundManager.SoundWavKillAll();
             }
 
             if (input.GetKeyLSB(VK_8)) {
@@ -264,7 +266,7 @@ int main() {
     display.PrintColoredLine(COLOR_BRIGHT_CYAN, "All systems performed successfully!");
     display.MoveCursor(13, 20);
     display.PrintLine("Thank you for testing ASCIILATOR!");
-    
+    display.MoveCursor(15, 20);
 
     return 0;
 }
