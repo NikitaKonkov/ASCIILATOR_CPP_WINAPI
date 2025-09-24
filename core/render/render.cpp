@@ -38,40 +38,36 @@ float calculate_face_distance(face f) {
 
 // Vertex projection function - essential for 3D rendering
 vertex project_vertex(vertex v, float cam_x, float cam_y, float cam_z, float cam_yaw, float cam_pitch, float fov, float aspect_ratio, float near_plane) {
-    // Transform to camera space
-    float dx = v.x - cam_x;
-    float dy = v.y - cam_y;
-    float dz = v.z - cam_z;
-    
     // Update cache if needed
     if (!is_camera_cache_valid()) {
         update_camera_cache();
     }
     
-    // Apply yaw rotation
+    // Translate vertex relative to camera
+    float dx = v.x - cached_transform.cam_x;
+    float dy = v.y - cached_transform.cam_y;
+    float dz = v.z - cached_transform.cam_z;
+
+    // Rotate around yaw (Y-axis) using cached values
     float temp_x = dx * cached_transform.cos_yaw - dz * cached_transform.sin_yaw;
     float temp_z = dx * cached_transform.sin_yaw + dz * cached_transform.cos_yaw;
     dx = temp_x;
     dz = temp_z;
-    
-    // Apply pitch rotation
+
+    // Rotate around pitch (X-axis) using cached values
     float temp_y = dy * cached_transform.cos_pitch - dz * cached_transform.sin_pitch;
     temp_z = dy * cached_transform.sin_pitch + dz * cached_transform.cos_pitch;
     dy = temp_y;
     dz = temp_z;
+
+    // Perspective projection with aspect ratio correction
+    if (dz <= near_plane) dz = near_plane; // Avoid division by zero
     
-    // Perspective projection
-    vertex projected;
-    if (dz > 0.01f) { // Prevent division by zero
-        projected.x = (dx * near_plane / dz) / aspect_ratio;
-        projected.y = dy * near_plane / dz;
-        projected.z = dz; // Keep depth for z-buffer
-    } else {
-        projected.x = 0;
-        projected.y = 0;
-        projected.z = -1; // Behind camera
-    }
-    
+    // Apply aspect ratio correction to compensate for console character stretching
+    float screen_x = (dx / dz) * (screen_width / 2) / tan(fov * 0.5 * M_PI / 180.0f) * aspect_ratio_width + (screen_width / 2);
+    float screen_y = (dy / dz) * (screen_height / 2) / tan(fov * 0.5 * M_PI / 180.0f) * aspect_ratio_height + (screen_height / 2);
+
+    vertex projected = {screen_x, screen_y, dz};
     return projected;
 }
 
@@ -100,7 +96,7 @@ int compare_renderables_by_depth(const void *a, const void *b) {
 }
 
 // Camera system and movement - positioned to view cubes
-camera3d camera = {0.0f, 0.0f, -10.0f, 0.0f, 0.0f}; 
+camera3d camera = {100.0f, -2.5f, 100.0f, 0.0f, -1.5f}; 
 
 // Aspect ratio correction for console character stretching
 float aspect_ratio_width = 1.0f;  
@@ -149,15 +145,15 @@ void camera_update() {
     float cos_pitch = cos(camera.pitch);
     float sin_pitch = sin(camera.pitch);
     
-    // Forward vector (with pitch)
-    diagonal_x = -sin_yaw * cos_pitch;
-    diagonal_y = -sin_pitch;
-    diagonal_z = cos_yaw * cos_pitch;
+    // Forward vector: direction the camera is actually looking (with pitch)
+    diagonal_x = -sin_yaw * cos_pitch;  // Negative sin to match view matrix
+    diagonal_y = -sin_pitch; // Negative because we want W to move toward where we're looking
+    diagonal_z = cos_yaw * cos_pitch;   // Positive cos to match view matrix
     
-    // Right vector (horizontal only)
-    horizontal_x = cos_yaw;
-    horizontal_y = 0.0f;
-    horizontal_z = sin_yaw;
+    // Right vector: perpendicular to forward, always horizontal (no pitch component)
+    horizontal_x = cos_yaw;    // Keep positive cos for right direction
+    horizontal_y = 0.0f;       // Keep horizontal strafe movement
+    horizontal_z = sin_yaw;    // Positive sin for correct right direction
     
     // Clamp pitch to prevent flipping
     const float MAX_PITCH = 1.5f;
@@ -178,6 +174,28 @@ unsigned int cmd_buffer_height = 60;
 // Buffer position tracking
 int frame_buffer_pos = 0;
 
+// Console auto-size detection
+void cmd_init() {
+    HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
+    CONSOLE_SCREEN_BUFFER_INFO csbi;
+    GetConsoleScreenBufferInfo(hConsole, &csbi);
+    
+    cmd_buffer_width = csbi.dwSize.X;
+    cmd_buffer_height = csbi.dwSize.Y;
+    
+    // Check if the console buffer size changed
+    if (cmd_buffer_width != save_console_width || cmd_buffer_height != save_console_height) {
+        system("cls"); // Clear the console if resized
+    }
+    
+    // Update screen dimensions
+    screen_width = cmd_buffer_width;
+    screen_height = cmd_buffer_height;
+    
+    save_console_width = cmd_buffer_width;
+    save_console_height = cmd_buffer_height;
+}
+
 // Aspect ratio functions
 void set_aspect_ratio(float width_scale, float height_scale) {
     aspect_ratio_width = width_scale;
@@ -189,18 +207,24 @@ void get_aspect_ratio(float *width_scale, float *height_scale) {
     *height_scale = aspect_ratio_height;
 }
 
-// Basic pixel setting with depth testing
+// Basic pixel setting with depth testing (1-based console coordinates)
 int set_pixel(int x, int y, char ascii, int color, float depth) {
-    if (x < 0 || x >= screen_width || y < 0 || y >= screen_height) {
-        return 0; // Out of bounds
+    // Bounds checking for 1-based console coordinates
+    if (x < 1 || y < 1 || x > screen_width || y > screen_height || 
+        x >= 2560 || y >= 2560) {
+        return 0;
     }
     
-    // Depth test
-    if (depth < screen_buffer[y][x].depth) {
-        screen_buffer[y][x].ascii = ascii;
-        screen_buffer[y][x].color = color;
-        screen_buffer[y][x].depth = depth;
-        screen_buffer[y][x].valid = 1;
+    // Convert to 0-based indexing for buffer
+    int buf_x = x - 1;
+    int buf_y = y - 1;
+    
+    // Depth test - only draw if closer or position is empty
+    if (!screen_buffer[buf_y][buf_x].valid || depth < screen_buffer[buf_y][buf_x].depth) {
+        screen_buffer[buf_y][buf_x].ascii = ascii;
+        screen_buffer[buf_y][buf_x].color = color;
+        screen_buffer[buf_y][buf_x].depth = depth;
+        screen_buffer[buf_y][buf_x].valid = 1;
         return 1;
     }
     
@@ -214,14 +238,11 @@ void draw_dot(dot d) {
                                     (float)screen_width / (float)screen_height, 0.1f);
     
     if (projected.z > 0.1f) { // In front of camera
-        // Convert to screen coordinates (scale from -1,1 to 0,screen_size)
-        int screen_x = (int)((projected.x * 0.5f + 0.5f) * screen_width);
-        int screen_y = (int)((0.5f - projected.y * 0.5f) * screen_height);
+        // Use projected screen coordinates directly (already in console coordinates)
+        int screen_x = (int)(projected.x + 0.5f); // Round to nearest integer
+        int screen_y = (int)(projected.y + 0.5f);
         
-        // Clamp to screen bounds
-        if (screen_x >= 0 && screen_x < screen_width && screen_y >= 0 && screen_y < screen_height) {
-            set_pixel(screen_x, screen_y, d.ascii, d.color, projected.z);
-        }
+        set_pixel(screen_x, screen_y, d.ascii, d.color, projected.z);
     }
 }
 
@@ -234,11 +255,11 @@ void draw_edge(edge e) {
                                    (float)screen_width / (float)screen_height, 0.1f);
     
     if (start_proj.z > 0.1f && end_proj.z > 0.1f) { // Both points in front
-        // Convert to screen coordinates
-        int x1 = (int)((start_proj.x * 0.5f + 0.5f) * screen_width);
-        int y1 = (int)((0.5f - start_proj.y * 0.5f) * screen_height);
-        int x2 = (int)((end_proj.x * 0.5f + 0.5f) * screen_width);
-        int y2 = (int)((0.5f - end_proj.y * 0.5f) * screen_height);
+        // Use projected screen coordinates directly
+        int x1 = (int)(start_proj.x + 0.5f);
+        int y1 = (int)(start_proj.y + 0.5f);
+        int x2 = (int)(end_proj.x + 0.5f);
+        int y2 = (int)(end_proj.y + 0.5f);
         
         // Bresenham's line algorithm
         int dx = abs(x2 - x1);
@@ -291,30 +312,68 @@ void draw_face(face f) {
     }
 }
 
-// Output buffer - simplified without differential rendering for now
+// Output buffer - using differential rendering like original
+static char frame_buffer[2560*2560]; // Main frame buffer for ANSI codes
+static int first_call = 1;
+
 void output_buffer() {
+    // Auto-detect console size
+    cmd_init();
     
-    // Output buffer contents
-    for (int y = 0; y < screen_height; y++) {
-        for (int x = 0; x < screen_width; x++) {
-            if (screen_buffer[y][x].valid) {
-                printf("\033[%dm%c\033[0m", screen_buffer[y][x].color, screen_buffer[y][x].ascii);
-            } else {
-                printf(" ");
+    frame_buffer_pos = 0;
+    
+    // Copy current screen buffer to previous for next frame comparison
+    // and build output string with only changed pixels
+    for (int y = 0; y < screen_height && y < 2560; y++) {
+        for (int x = 0; x < screen_width && x < 2560; x++) {
+            pixel current = screen_buffer[y][x];
+            pixel previous = previous_screen_buffer[y][x];
+            
+            // Check if pixel has changed or this is first call
+            int pixel_changed = first_call || (current.valid != previous.valid) ||
+                               (current.valid && (current.ascii != previous.ascii || 
+                                                current.color != previous.color));
+            
+            if (pixel_changed) {
+                if (frame_buffer_pos < sizeof(frame_buffer) - 50) {
+                    // Draw new pixel or clear pixel (1-based console coordinates)
+                    if (current.valid) {
+                        frame_buffer_pos += snprintf(&frame_buffer[frame_buffer_pos], 
+                            sizeof(frame_buffer) - frame_buffer_pos,
+                            "\x1b[%d;%dH\x1b[%dm%c", y + 1, x + 1, current.color, current.ascii);
+                    } else {
+                        frame_buffer_pos += snprintf(&frame_buffer[frame_buffer_pos], 
+                            sizeof(frame_buffer) - frame_buffer_pos,
+                            "\x1b[%d;%dH ", y + 1, x + 1);
+                    }
+                }
             }
+            
+            // Copy current to previous for next frame
+            previous_screen_buffer[y][x] = current;
         }
-        printf("\n");
+    }
+    
+    // Null terminate and output only if there are changes
+    if (frame_buffer_pos > 0 || first_call) {
+        if (first_call) {
+            system("cls"); // Clear screen on first call
+            first_call = 0;
+        }
+        frame_buffer[frame_buffer_pos] = '\0';
+        printf("%s", frame_buffer);
+        fflush(stdout); // Ensure immediate output
     }
 }
 
 // Main geometry drawing function
 void geometry_draw() {
-    // Clear buffer
-    for (int y = 0; y < screen_height; y++) {
-        for (int x = 0; x < screen_width; x++) {
+    // Clear buffer with proper depth values
+    for (int y = 0; y < screen_height && y < 2560; y++) {
+        for (int x = 0; x < screen_width && x < 2560; x++) {
             screen_buffer[y][x].ascii = ' ';
             screen_buffer[y][x].color = 0;
-            screen_buffer[y][x].depth = 1000000.0f;
+            screen_buffer[y][x].depth = 2560.0f; // Far depth
             screen_buffer[y][x].valid = 0;
         }
     }

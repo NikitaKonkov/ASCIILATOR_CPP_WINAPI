@@ -155,6 +155,7 @@ vertex rotate_vertex(vertex v, vertex center, float angle_x, float angle_y, floa
 void draw_rotating_cube(vertex center, float size, float rotation_x, float rotation_y, float rotation_z);
 
 // Main rendering functions
+void cmd_init();
 void output_buffer();
 void geometry_draw();
 
