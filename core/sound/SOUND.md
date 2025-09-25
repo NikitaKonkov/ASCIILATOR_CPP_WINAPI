@@ -107,10 +107,10 @@ The sound system integrates seamlessly with the main ASCIILATOR application whic
 // Initialize audio system
 audio_init();
 
-// Use within C++ classes like DisplayManager, InputManager, ClockManager
+// Use within C++ classes like ConsoleManager, InputManager, ClockManager
 class GameEngine {
 private:
-    DisplayManager display;
+    ConsoleManager console;
     InputManager input;
     ClockManager clock;
     
@@ -132,9 +132,9 @@ public:
 ```
 core/
 ├── main.cpp              // Main C++ application with manager classes
-├── display/
-│   ├── display.hpp       // DisplayManager class
-│   └── display.cpp
+├── console/
+│   ├── console.hpp       // ConsoleManager class
+│   └── console.cpp
 ├── input/
 │   ├── input.hpp         // InputManager class  
 │   └── input.cpp
@@ -206,7 +206,7 @@ The sound system is implemented as a C-style library within the larger C++ ASCII
 - **AudioSystem struct**: Global audio state management with thread synchronization
 
 ### Integration Layer
-- **main.cpp**: C++ application using DisplayManager, InputManager, ClockManager classes
+- **main.cpp**: C++ application using ConsoleManager, InputManager, ClockManager classes
 - **Manager Classes**: Modern C++ classes that call the C-style sound API
 - **Thread Safety**: Critical sections protect audio data between C++ and C layers
 

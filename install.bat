@@ -18,7 +18,7 @@ if not exist "compile_hashes.txt" (
 REM Function to check and compile if needed
 call :CheckAndCompile "core/main.cpp" "bin/main.obj"
 call :CheckAndCompile "core/input/input.cpp" "bin/input.obj"
-call :CheckAndCompile "core/display/display.cpp" "bin/display.obj"
+call :CheckAndCompile "core/console/console.cpp" "bin/console.obj"
 call :CheckAndCompile "core/clock/clock.cpp" "bin/clock.obj"
 call :CheckAndCompile "core/sound/sound.cpp" "bin/sound.obj"
 call :CheckAndCompile "core/render/render.cpp" "bin/render.obj"
@@ -27,7 +27,7 @@ call :CheckAndCompile "core/render/render.cpp" "bin/render.obj"
 echo Linking object files to create executable...
 
 REM Link all object files together
-link /OUT:engine.exe bin\main.obj bin\input.obj bin\display.obj bin\clock.obj bin\sound.obj bin\render.obj /SUBSYSTEM:CONSOLE user32.lib kernel32.lib
+link /OUT:engine.exe bin\main.obj bin\input.obj bin\console.obj bin\clock.obj bin\sound.obj bin\render.obj /SUBSYSTEM:CONSOLE user32.lib kernel32.lib
 
 echo Build complete!
 echo Hash information stored in compile_hashes.txt

@@ -1,6 +1,97 @@
 #include "input.hpp"
+#include <windows.h>
+#include <stdio.h>
 
-POINT InputManager::lastMousePos = {0, 0};
+// Raw Input Mouse Delta Implementation
+LRESULT CALLBACK InputManager::HiddenWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
+    switch (uMsg) {
+        case WM_INPUT: {
+            RAWINPUT raw;
+            UINT dwSize = sizeof(RAWINPUT);
+
+            if (GetRawInputData((HRAWINPUT)lParam, RID_INPUT, &raw, &dwSize, sizeof(RAWINPUTHEADER)) == (UINT)-1) {
+                DWORD error = GetLastError();
+                printf("Failed to get raw input data. Error code: %lu\n", error);
+                return 0;
+            }
+
+            if (raw.header.dwType == RIM_TYPEMOUSE && (raw.data.mouse.lLastX != 0 || raw.data.mouse.lLastY != 0)) {
+                LONG deltaX = raw.data.mouse.lLastX;
+                LONG deltaY = raw.data.mouse.lLastY;
+                printf("Mouse Delta: X = %ld, Y = %ld\n", deltaX, deltaY);
+            }
+            return 0;
+        }
+        case WM_DESTROY:
+            PostQuitMessage(0);
+            return 0;
+        default:
+            return DefWindowProc(hwnd, uMsg, wParam, lParam);
+    }
+}
+
+void InputManager::InitializeRawInput() {
+    // Register window class
+    WNDCLASSEX wc = {0};
+    wc.cbSize = sizeof(WNDCLASSEX);
+    wc.lpfnWndProc = HiddenWindowProc;
+    wc.hInstance = GetModuleHandle(NULL);
+    wc.lpszClassName = L"RawInputWindow";
+
+    if (!RegisterClassEx(&wc)) {
+        printf("Failed to register window class. Error: %lu\n", GetLastError());
+        return;
+    }
+
+    // Create hidden window
+    hiddenWindow = CreateWindowEx(
+        0,
+        L"RawInputWindow",
+        L"Raw Input Handler",
+        0,
+        0, 0, 0, 0,
+        HWND_MESSAGE,  // Message-only window
+        NULL,
+        GetModuleHandle(NULL),
+        NULL
+    );
+
+    if (!hiddenWindow) {
+        printf("Failed to create hidden window. Error: %lu\n", GetLastError());
+        return;
+    }
+
+    // Register raw input
+    RAWINPUTDEVICE rid;
+    rid.usUsagePage = 0x01; // Generic desktop controls
+    rid.usUsage = 0x02;     // Mouse
+    rid.dwFlags = RIDEV_INPUTSINK; // Receive input even when not in focus
+    rid.hwndTarget = hiddenWindow; // Target our hidden window
+
+    if (!RegisterRawInputDevices(&rid, 1, sizeof(rid))) {
+        DWORD error = GetLastError();
+        printf("Failed to register raw input devices. Error code: %lu\n", error);
+    } else {
+        printf("Raw input registered successfully with hidden window.\n");
+    }
+}
+
+void InputManager::ProcessRawInput(LPARAM lParam) {
+    RAWINPUT raw;
+    UINT dwSize = sizeof(RAWINPUT);
+
+    if (GetRawInputData((HRAWINPUT)lParam, RID_INPUT, &raw, &dwSize, sizeof(RAWINPUTHEADER)) == (UINT)-1) {
+        DWORD error = GetLastError();
+        printf("Failed to get raw input data. Error code: %lu\n", error);
+        return;
+    }
+
+    if (raw.header.dwType == RIM_TYPEMOUSE && (raw.data.mouse.lLastX != 0 || raw.data.mouse.lLastY != 0)) {
+        LONG deltaX = raw.data.mouse.lLastX;
+        LONG deltaY = raw.data.mouse.lLastY;
+        printf("Mouse Delta: X = %ld, Y = %ld\n", deltaX, deltaY);
+    }
+}
 
 ////////////////////// Get the state of multiple keys; returns true if all specified keys are pressed
 bool InputManager::GetPressedKeys(int count, ...) {
@@ -101,6 +192,9 @@ void InputManager::PrintMouseButtons() {
     printf("\n");
 }
 
+// Previous mouse position for movement detection
+POINT InputManager::lastMousePos = {0, 0};
+HWND InputManager::hiddenWindow = NULL;
 
 ////////////////////// Check if mouse moved since last call
 bool InputManager::IsMouseMoved() {

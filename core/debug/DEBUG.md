@@ -78,12 +78,12 @@ core/
 #include "debug/debug.hpp"
 
 int main() {
-    DisplayManager display;
+    ConsoleManager console;
     InputManager input;
     ClockManager clock;
     
     // Initialize debug system
-    g_debugManager.Initialize(&display, &input, &clock);
+    g_debugManager.Initialize(&console, &input, &clock);
     
     // Show welcome screen
     g_debugManager.DisplayWelcomeScreen();

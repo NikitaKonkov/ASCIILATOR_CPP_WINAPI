@@ -1,21 +1,21 @@
-#include "display.hpp"
+#include "console.hpp"
 
 ////////////////////// Constructor - Initialize console handle and enable ANSI
-DisplayManager::DisplayManager() {
+ConsoleManager::ConsoleManager() {
     hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
     ansiEnabled = false;
     EnableANSI();
 }
 
 ////////////////////// Destructor - Clean up resources
-DisplayManager::~DisplayManager() {
+ConsoleManager::~ConsoleManager() {
     // Reset console to default state
     Print(COLOR_RESET);
     ShowCursor();
 }
 
 ////////////////////// Print text without newline
-void DisplayManager::Print(const char* text) {
+void ConsoleManager::Print(const char* text) {
     if (hConsole != INVALID_HANDLE_VALUE) {
         DWORD written;
         WriteConsoleA(hConsole, text, lstrlenA(text), &written, NULL);
@@ -23,13 +23,13 @@ void DisplayManager::Print(const char* text) {
 }
 
 ////////////////////// Print text with newline
-void DisplayManager::PrintLine(const char* text) {
+void ConsoleManager::PrintLine(const char* text) {
     Print(text);
     Print("\n");
 }
 
 ////////////////////// Print formatted text (like printf)
-void DisplayManager::PrintFormatted(const char* format, ...) {
+void ConsoleManager::PrintFormatted(const char* format, ...) {
     char buffer[4096];
     va_list args;
     va_start(args, format);
@@ -39,7 +39,7 @@ void DisplayManager::PrintFormatted(const char* format, ...) {
 }
 
 ////////////////////// Print colored text without newline
-void DisplayManager::PrintColored(const char* color, const char* text) {
+void ConsoleManager::PrintColored(const char* color, const char* text) {
     if (ansiEnabled) {
         Print(color);
         Print(text);
@@ -50,13 +50,13 @@ void DisplayManager::PrintColored(const char* color, const char* text) {
 }
 
 ////////////////////// Print colored text with newline
-void DisplayManager::PrintColoredLine(const char* color, const char* text) {
+void ConsoleManager::PrintColoredLine(const char* color, const char* text) {
     PrintColored(color, text);
     Print("\n");
 }
 
 ////////////////////// Print styled and colored text
-void DisplayManager::PrintStyledText(const char* style, const char* color, const char* text) {
+void ConsoleManager::PrintStyledText(const char* style, const char* color, const char* text) {
     if (ansiEnabled) {
         Print(style);
         Print(color);
@@ -68,7 +68,7 @@ void DisplayManager::PrintStyledText(const char* style, const char* color, const
 }
 
 ////////////////////// Clear entire screen and move cursor to top-left
-void DisplayManager::ClearScreen() {
+void ConsoleManager::ClearScreen() {
     if (ansiEnabled) {
         Print("\033[2J\033[1;1H");
     } else {
@@ -77,77 +77,77 @@ void DisplayManager::ClearScreen() {
 }
 
 ////////////////////// Clear current line
-void DisplayManager::ClearLine() {
+void ConsoleManager::ClearLine() {
     if (ansiEnabled) {
         Print("\033[2K");
     }
 }
 
 ////////////////////// Move cursor to specific position (1-based)
-void DisplayManager::MoveCursor(int row, int col) {
+void ConsoleManager::MoveCursor(int row, int col) {
     if (ansiEnabled) {
         PrintFormatted("\033[%d;%dH", row, col);
     }
 }
 
 ////////////////////// Move cursor up by specified lines
-void DisplayManager::MoveCursorUp(int lines) {
+void ConsoleManager::MoveCursorUp(int lines) {
     if (ansiEnabled) {
         PrintFormatted("\033[%dA", lines);
     }
 }
 
 ////////////////////// Move cursor down by specified lines
-void DisplayManager::MoveCursorDown(int lines) {
+void ConsoleManager::MoveCursorDown(int lines) {
     if (ansiEnabled) {
         PrintFormatted("\033[%dB", lines);
     }
 }
 
 ////////////////////// Move cursor left by specified characters
-void DisplayManager::MoveCursorLeft(int chars) {
+void ConsoleManager::MoveCursorLeft(int chars) {
     if (ansiEnabled) {
         PrintFormatted("\033[%dD", chars);
     }
 }
 
 ////////////////////// Move cursor right by specified characters
-void DisplayManager::MoveCursorRight(int chars) {
+void ConsoleManager::MoveCursorRight(int chars) {
     if (ansiEnabled) {
         PrintFormatted("\033[%dC", chars);
     }
 }
 
 ////////////////////// Save current cursor position
-void DisplayManager::SaveCursorPosition() {
+void ConsoleManager::SaveCursorPosition() {
     if (ansiEnabled) {
         Print("\033[s");
     }
 }
 
 ////////////////////// Restore saved cursor position
-void DisplayManager::RestoreCursorPosition() {
+void ConsoleManager::RestoreCursorPosition() {
     if (ansiEnabled) {
         Print("\033[u");
     }
 }
 
 ////////////////////// Hide cursor
-void DisplayManager::HideCursor() {
+void ConsoleManager::HideCursor() {
     if (ansiEnabled) {
         Print("\033[?25l");
     }
 }
 
 ////////////////////// Show cursor
-void DisplayManager::ShowCursor() {
+void ConsoleManager::ShowCursor() {
     if (ansiEnabled) {
         Print("\033[?25h");
     }
 }
 
 ////////////////////// Enable ANSI escape code processing
-void DisplayManager::EnableANSI() {
+void ConsoleManager::EnableANSI() {
     if (hConsole != INVALID_HANDLE_VALUE) {
         DWORD consoleMode;
         if (GetConsoleMode(hConsole, &consoleMode)) {
@@ -159,7 +159,7 @@ void DisplayManager::EnableANSI() {
 }
 
 ////////////////////// Disable ANSI escape code processing
-void DisplayManager::DisableANSI() {
+void ConsoleManager::DisableANSI() {
     if (hConsole != INVALID_HANDLE_VALUE) {
         DWORD consoleMode;
         if (GetConsoleMode(hConsole, &consoleMode)) {
@@ -171,12 +171,12 @@ void DisplayManager::DisableANSI() {
 }
 
 ////////////////////// Check if ANSI is enabled
-bool DisplayManager::IsANSIEnabled() {
+bool ConsoleManager::IsANSIEnabled() {
     return ansiEnabled;
 }
 
 ////////////////////// Get console size in characters
-void DisplayManager::GetConsoleSize(int* width, int* height) {
+void ConsoleManager::GetConsoleSize(int* width, int* height) {
     CONSOLE_SCREEN_BUFFER_INFO csbi;
     if (GetConsoleScreenBufferInfo(hConsole, &csbi)) {
         *width = csbi.srWindow.Right - csbi.srWindow.Left + 1;
@@ -188,12 +188,12 @@ void DisplayManager::GetConsoleSize(int* width, int* height) {
 }
 
 ////////////////////// Set console window title
-void DisplayManager::SetTitle(const char* title) {
+void ConsoleManager::SetTitle(const char* title) {
     SetConsoleTitleA(title);
 }
 
 ////////////////////// Draw a box at specified position
-void DisplayManager::DrawBox(int x, int y, int width, int height, const char* color) {
+void ConsoleManager::DrawBox(int x, int y, int width, int height, const char* color) {
     // Draw top border
     MoveCursor(y, x);
     PrintColored(color, "+");
@@ -222,7 +222,7 @@ void DisplayManager::DrawBox(int x, int y, int width, int height, const char* co
 }
 
 ////////////////////// Draw horizontal line
-void DisplayManager::DrawHorizontalLine(int x, int y, int length, char character) {
+void ConsoleManager::DrawHorizontalLine(int x, int y, int length, char character) {
     MoveCursor(y, x);
     for (int i = 0; i < length; i++) {
         PrintFormatted("%c", character);
@@ -230,7 +230,7 @@ void DisplayManager::DrawHorizontalLine(int x, int y, int length, char character
 }
 
 ////////////////////// Draw vertical line
-void DisplayManager::DrawVerticalLine(int x, int y, int length, char character) {
+void ConsoleManager::DrawVerticalLine(int x, int y, int length, char character) {
     for (int i = 0; i < length; i++) {
         MoveCursor(y + i, x);
         PrintFormatted("%c", character);
@@ -238,7 +238,7 @@ void DisplayManager::DrawVerticalLine(int x, int y, int length, char character) 
 }
 
 ////////////////////// Fill area with character and color
-void DisplayManager::FillArea(int x, int y, int width, int height, char character, const char* color) {
+void ConsoleManager::FillArea(int x, int y, int width, int height, char character, const char* color) {
     for (int row = 0; row < height; row++) {
         MoveCursor(y + row, x);
         PrintColored(color, "");

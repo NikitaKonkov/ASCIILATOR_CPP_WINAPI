@@ -1,5 +1,5 @@
-#if !defined(DISPLAY_HPP)
-#define DISPLAY_HPP
+#if !defined(CONSOLE_HPP)
+#define CONSOLE_HPP
 
 #include <windows.h>
 #include <stdio.h>
@@ -46,16 +46,16 @@
 #define STYLE_REVERSE    "\033[7m"
 #define STYLE_STRIKETHROUGH "\033[9m"
 
-// Display Manager Class
-class DisplayManager {
+// Console Manager Class
+class ConsoleManager {
 private:
     HANDLE hConsole;
     bool ansiEnabled;
     
 public:
     // Constructor and Destructor
-    DisplayManager();
-    ~DisplayManager();
+    ConsoleManager();
+    ~ConsoleManager();
     
     // Basic Display Methods
     void Print(const char* text);
@@ -92,4 +92,4 @@ public:
     void FillArea(int x, int y, int width, int height, char character = ' ', const char* color = COLOR_WHITE);
 };
 
-#endif // DISPLAY_HPP
+#endif // CONSOLE_HPP

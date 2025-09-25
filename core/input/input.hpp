@@ -117,7 +117,8 @@
 class InputManager {
 private:
     static POINT lastMousePos;
-    
+    static HWND hiddenWindow;
+    static LRESULT CALLBACK HiddenWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 public:
     // Keyboard Methods
     bool GetPressedKeys(int count, ...);
@@ -133,6 +134,10 @@ public:
     bool GetMouseButtonState(int button);
     void PrintMouseButtons();
     bool IsMouseMoved();
+
+    // Raw Input Methods
+    void InitializeRawInput();
+    void ProcessRawInput(LPARAM lParam);
 };
 
 #endif // INPUT_HPP
