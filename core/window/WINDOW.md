@@ -140,7 +140,9 @@ while (!shouldExit && !window.ShouldClose()) {
 
   Sleep(10);
 }
-```Raw input notes and caveats
+
+```
+Raw input notes and caveats
 --------------------------
 
 - `WndProc` uses `GetRawInputData` twice: first to get required buffer size, then to retrieve the payload. The implementation allocates a `BYTE*` buffer with `new[]` and deletes it after use.
@@ -226,10 +228,3 @@ If you want to help:
 - Replace the `EDIT` control with a custom drawing surface for better performance
 - Add proper thread synchronization primitives (condition variables or events) if you need complex inter-thread messaging
 
-License
--------
-
-This repository is provided as-is. Add your preferred license file if you plan to share this publicly.
-# Further development of my CMD Game Engine using WINAPI and CPP
-
-- reformating code

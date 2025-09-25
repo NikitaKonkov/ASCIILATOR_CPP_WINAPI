@@ -1,16 +1,11 @@
 // Implementation of WindowManager - small text window with raw input mouse delta collection
 
 #include "window.hpp"
-#include "../clock/clock.hpp"
-#include <windowsx.h>
-#include <cstdio>
-#include <cstdarg>
+
 
 #ifndef IDC_STATIC
 #define IDC_STATIC -1
 #endif
-
-static const wchar_t* kWndClassName = L"ASCIILATOR_TextWindowClass";
 
 ////////////////////// Helper: convert narrow to wide
 static std::wstring ToWide(const char* s) {
@@ -37,7 +32,7 @@ void WindowManager::RegisterClassIfNeeded() {
 	wc.hCursor = LoadCursor(nullptr, IDC_ARROW);
 	wc.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
 	wc.lpszMenuName = nullptr;
-	wc.lpszClassName = kWndClassName;
+	wc.lpszClassName = L"ASCIILATOR_TextWindowClass";
 	wc.hIconSm = LoadIcon(nullptr, IDI_APPLICATION);
 	if (RegisterClassExW(&wc)) {
 		m_classRegistered = true;
@@ -98,7 +93,7 @@ void WindowManager::CreateOrResizeWindow() {
 		AdjustWindowRect(&rc, style, FALSE);
 		m_hWnd = CreateWindowExW(
 			0,
-			kWndClassName,
+			L"ASCIILATOR_TextWindowClass",
 			L"ASCIILATOR",
 			style,
 			CW_USEDEFAULT, CW_USEDEFAULT,
@@ -317,57 +312,5 @@ void WindowManager::PrintHeartbeat() {
 	PrintToWindow("[Window] heartbeat...\r\n");
 }
 
-void WindowManager::RunWindowThread() {
-	RunWindowThread(nullptr);
-}
-
-void WindowManager::RunWindowThread(volatile bool* globalExitFlag) {
-	// Setup clocks for this thread
-	ClockManager clock;
-	int windowClock = clock.CreateClock(5, "WindowUpdate"); // 5 FPS updates
-	int heartbeatClock = clock.CreateClock(1, "WindowHeartbeat"); // 1 FPS heartbeat
-	
-	int exitAttempts = 0;
-	while (!ShouldClose()) {
-		// Check global exit flag if provided
-		if (globalExitFlag && *globalExitFlag) {
-			break;
-		}
-		
-		// Process window messages
-		ProcessWindowMessages();
-		
-		// Check for ESC key - highest priority exit condition
-		if (GetAsyncKeyState(VK_ESCAPE) & 0x8000) {
-			if (globalExitFlag) *globalExitFlag = true;
-			SetShouldClose(true);
-			exitAttempts++;
-			if (exitAttempts > 10) { // Force exit after multiple ESC presses
-				break;
-			}
-		}
-		
-		// Check window close state
-		if (ShouldClose()) {
-			if (globalExitFlag) *globalExitFlag = true;
-			break;
-		}
-		
-		// Update mouse delta at 5 FPS
-		if (clock.SyncClock(windowClock)) {
-			UpdateMouseDelta();
-		}
-		
-		// Print heartbeat at 1 FPS
-		if (clock.SyncClock(heartbeatClock)) {
-			PrintHeartbeat();
-		}
-		
-		Sleep(10); // Short sleep for responsiveness
-	}
-	
-	// Clean up resources
-	clock.DestroyAllClocks();
-	CloseWindow();
-}
+// RunWindowThread methods removed - functionality moved to main.cpp WindowThreadProc
 

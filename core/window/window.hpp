@@ -29,11 +29,10 @@ public:
 
     // High-level window thread management
     bool SetupWindow(int width, int height, const char* title);
-    void RunWindowThread();
-    void RunWindowThread(volatile bool* globalExitFlag);
     void ProcessWindowMessages();
     void UpdateMouseDelta();
     void PrintHeartbeat();
+    // RunWindowThread methods removed - functionality moved to main.cpp WindowThreadProc
 
     // Accessors
     HWND GetWindowHandle() const { return m_hWnd; }
