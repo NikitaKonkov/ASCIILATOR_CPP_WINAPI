@@ -146,7 +146,7 @@ DWORD WINAPI SoundThreadProc(LPVOID lpParam) {
 DWORD WINAPI RenderThreadProc(LPVOID lpParam) {
     volatile bool* g_shouldExit = static_cast<volatile bool*>(lpParam);
     
-    RenderManager render;
+    
 
 
     // Empty thread for now - placeholder for future rendering

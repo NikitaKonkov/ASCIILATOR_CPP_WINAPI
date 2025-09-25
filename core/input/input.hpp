@@ -2,9 +2,8 @@
 #define INPUT_HPP
 
 #include <windows.h>
-#include <stdio.h>
-#include <stdarg.h>
 #include <stdbool.h>
+#include <stdio.h>
 
 // Special Keys
 #define VK_ESCAPE        0x1B  // Escape key

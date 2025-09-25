@@ -1,6 +1,4 @@
 #include "input.hpp"
-#include <windows.h>
-#include <stdio.h>
 
 ////////////////////// Get the state of multiple keys; returns true if all specified keys are pressed
 bool InputManager::GetPressedKeys(int count, ...) {
