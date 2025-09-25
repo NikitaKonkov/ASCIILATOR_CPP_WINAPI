@@ -51,6 +51,9 @@ SimpleRenderer::SimpleRenderer(ConsoleManager& consoleManager) : console(console
     savedConsoleHeight = 0;
     currentConsoleWidth = 0;
     currentConsoleHeight = 0;
+    
+    // Set default color mode to 24-bit
+    currentColorMode = ColorMode::COLOR_24BIT;
 }
 
 SimpleRenderer::~SimpleRenderer() {
@@ -86,6 +89,101 @@ void SimpleRenderer::UpdateConsoleSize() {
     }
 }
 
+// Color mode setter and getter
+void SimpleRenderer::SetColorMode(ColorMode mode) {
+    currentColorMode = mode;
+}
+
+ColorMode SimpleRenderer::GetColorMode() const {
+    return currentColorMode;
+}
+
+// Convert RGB to 4-bit ANSI color (16 colors)
+int SimpleRenderer::RGBTo4Bit(int r, int g, int b, bool isBright) {
+    // Normalize RGB to 0-1 range
+    double rd = r / 255.0;
+    double gd = g / 255.0;
+    double bd = b / 255.0;
+    
+    // Calculate brightness
+    double brightness = (rd + gd + bd) / 3.0;
+    
+    // Determine if we should use bright colors
+    bool useBright = isBright || brightness > 0.5;
+    
+    // Find closest basic color
+    int color = 0; // Black
+    
+    if (rd > 0.5 && gd < 0.3 && bd < 0.3) color = 1; // Red
+    else if (rd < 0.3 && gd > 0.5 && bd < 0.3) color = 2; // Green
+    else if (rd > 0.5 && gd > 0.5 && bd < 0.3) color = 3; // Yellow
+    else if (rd < 0.3 && gd < 0.3 && bd > 0.5) color = 4; // Blue
+    else if (rd > 0.5 && gd < 0.3 && bd > 0.5) color = 5; // Magenta
+    else if (rd < 0.3 && gd > 0.5 && bd > 0.5) color = 6; // Cyan
+    else if (rd > 0.5 && gd > 0.5 && bd > 0.5) color = 7; // White
+    
+    // Return appropriate color code
+    return useBright ? (90 + color) : (30 + color);
+}
+
+// Convert RGB to 8-bit ANSI color (256 colors)
+int SimpleRenderer::RGBTo8Bit(int r, int g, int b) {
+    // Convert RGB to 6x6x6 color cube (216 colors) + 16 basic colors + 24 grayscale
+    if (r == g && g == b) {
+        // Grayscale
+        if (r < 8) return 16;
+        if (r > 248) return 231;
+        return 232 + (r - 8) / 10;
+    }
+    
+    // Color cube: 16 + 36*r + 6*g + b
+    int r6 = r * 5 / 255;
+    int g6 = g * 5 / 255;
+    int b6 = b * 5 / 255;
+    
+    return 16 + 36 * r6 + 6 * g6 + b6;
+}
+
+// Main color converter function
+std::string SimpleRenderer::ConvertToANSI(int r, int g, int b, bool isBackground) {
+    std::stringstream ansi;
+    
+    switch (currentColorMode) {
+        case ColorMode::COLOR_4BIT: {
+            int colorCode = RGBTo4Bit(r, g, b);
+            if (isBackground) {
+                // Convert foreground code to background (30-37 -> 40-47, 90-97 -> 100-107)
+                if (colorCode >= 90) colorCode = colorCode - 90 + 100;
+                else colorCode = colorCode - 30 + 40;
+            }
+            ansi << "\033[" << colorCode << "m";
+            break;
+        }
+        
+        case ColorMode::COLOR_8BIT: {
+            int colorCode = RGBTo8Bit(r, g, b);
+            if (isBackground) {
+                ansi << "\033[48;5;" << colorCode << "m";
+            } else {
+                ansi << "\033[38;5;" << colorCode << "m";
+            }
+            break;
+        }
+        
+        case ColorMode::COLOR_24BIT:
+        default: {
+            if (isBackground) {
+                ansi << "\033[48;2;" << r << ";" << g << ";" << b << "m";
+            } else {
+                ansi << "\033[38;2;" << r << ";" << g << ";" << b << "m";
+            }
+            break;
+        }
+    }
+    
+    return ansi.str();
+}
+
 void SimpleRenderer::RenderFrame() {
     if (!model) {
         return;
@@ -106,9 +204,7 @@ void SimpleRenderer::RenderFrame() {
     int renderWidth = targetWidth * 2;
     int renderHeight = targetHeight * 2;
     
-    // Cap maximum resolution for performance
-    if (renderWidth > 1920) renderWidth = 1920;
-    if (renderHeight > 1080) renderHeight = 1080;
+
 
     static float angle = 0.0f;
     angle += 0.05f; // Rotate model slowly
@@ -157,6 +253,8 @@ void SimpleRenderer::RenderFrame() {
     output << "\033[1;36m3D Model Render (" << effectiveWidth << "x" << effectiveHeight 
            << ") Internal:" << renderWidth << "x" << renderHeight
            << " Console:" << currentConsoleWidth << "x" << currentConsoleHeight
+           << " Mode:" << (currentColorMode == ColorMode::COLOR_4BIT ? "4bit" : 
+                          currentColorMode == ColorMode::COLOR_8BIT ? "8bit" : "24bit")
            << " Frame:" << static_cast<int>(angle * 10) << "\033[0m\n";
     
     // Sample the framebuffer with dynamic sampling rates
@@ -179,9 +277,9 @@ void SimpleRenderer::RenderFrame() {
             else if (brightness > 50) displayChar = '@';
             else displayChar = ' ';
             
-            // Use ANSI 24-bit truecolor for foreground color with character
+            // Use the color converter for foreground color with character
             if (brightness > 30) {  // Only show color for non-black pixels
-                output << "\033[38;2;" << r << ";" << g << ";" << b << "m" << displayChar << "\033[0m";
+                output << ConvertToANSI(r, g, b, false) << displayChar << "\033[0m";
             } else {
                 output << " ";  // One space for black/dark pixels
             }

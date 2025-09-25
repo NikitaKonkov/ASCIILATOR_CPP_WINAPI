@@ -123,16 +123,16 @@ DWORD WINAPI SoundThreadProc(LPVOID lpParam) {
             *g_shouldExit = true;
             break;
         }
-        if (input.GetKeyMSB('1')) {
+        if (input.GetKeyMSB('6')) {
             sound.SoundWavRepeat(100,"ahem_x.wav", 0.5f);
         }
-        if (input.GetKeyMSB('2')) {
+        if (input.GetKeyMSB('7')) {
             sound.SoundWavRepeat(101,"air_raid.wav", 0.5f);
         }
-        if (input.GetKeyMSB('3')) {
+        if (input.GetKeyMSB('8')) {
             sound.SoundWavRepeat(102,"airplane.wav", 0.5f);
         }
-        if (input.GetKeyMSB('4')) {
+        if (input.GetKeyMSB('9')) {
             sound.SoundWavKillAll();
         }   
         Sleep(10); // Polling interval
@@ -159,10 +159,27 @@ DWORD WINAPI RenderThreadProc(LPVOID lpParam) {
     }
     
     console.PrintColoredLine(COLOR_BRIGHT_GREEN, "3D renderer started! Model loaded successfully.");
+    console.PrintColoredLine(COLOR_BRIGHT_YELLOW, "Press 1=4bit, 2=8bit, 3=24bit colors");
+    
+    InputManager input;
     
     //int renderClock = clock.CreateClock(24, "RenderClock"); // 2 FPS for rendering
     
     while (!*g_shouldExit) {
+        // Check for color mode switching
+        if (input.GetKeyMSB('1')) {
+            renderer.SetColorMode(ColorMode::COLOR_4BIT);
+            console.PrintColoredLine(COLOR_BRIGHT_CYAN, "Switched to 4-bit color mode (16 colors)");
+        }
+        if (input.GetKeyMSB('2')) {
+            renderer.SetColorMode(ColorMode::COLOR_8BIT);
+            console.PrintColoredLine(COLOR_BRIGHT_CYAN, "Switched to 8-bit color mode (256 colors)");
+        }
+        if (input.GetKeyMSB('3')) {
+            renderer.SetColorMode(ColorMode::COLOR_24BIT);
+            console.PrintColoredLine(COLOR_BRIGHT_CYAN, "Switched to 24-bit color mode (truecolor)");
+        }
+        
         //if (clock.SyncClock(renderClock)) {
             console.MoveCursor(1, 1);
             renderer.RenderFrame();

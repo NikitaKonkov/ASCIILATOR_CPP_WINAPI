@@ -69,11 +69,7 @@ void ConsoleManager::PrintStyledText(const char* style, const char* color, const
 
 ////////////////////// Clear entire screen and move cursor to top-left
 void ConsoleManager::ClearScreen() {
-    if (ansiEnabled) {
-        Print("\033[2J\033[1;1H");
-    } else {
         system("cls");
-    }
 }
 
 ////////////////////// Clear current line
