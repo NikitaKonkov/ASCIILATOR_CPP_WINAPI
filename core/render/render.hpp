@@ -7,16 +7,23 @@
 
 class SimpleRenderer {
 private:
-    ConsoleManager* console;
+    ConsoleManager& console;  // Changed from pointer to reference
     Model* model;
     static const int width = 960;
     static const int height = 240;
+    
+    // Console size tracking
+    int savedConsoleWidth;
+    int savedConsoleHeight;
+    int currentConsoleWidth;
+    int currentConsoleHeight;
 
 public:
-    SimpleRenderer(ConsoleManager* consoleManager);
+    SimpleRenderer(ConsoleManager& consoleManager);  // Changed parameter to reference
     ~SimpleRenderer();
     bool LoadModel(const std::string& filename);
     void RenderFrame();
+    void UpdateConsoleSize();
 };
 
 #endif // RENDER_HPP

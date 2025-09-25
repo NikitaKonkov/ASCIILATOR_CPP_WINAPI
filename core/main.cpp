@@ -148,7 +148,7 @@ DWORD WINAPI RenderThreadProc(LPVOID lpParam) {
     
     ConsoleManager console;
     ClockManager clock;
-    SimpleRenderer renderer(&console);
+    SimpleRenderer renderer(console);  // Pass by reference instead of pointer
     
     // Try to load the african head model
     std::string modelPath = "core/tinyrenderer-master/obj/african_head/african_head.obj";

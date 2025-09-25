@@ -45,7 +45,12 @@ struct SimpleShader : IShader {
     }
 };
 
-SimpleRenderer::SimpleRenderer(ConsoleManager* consoleManager) : console(consoleManager), model(nullptr) {
+SimpleRenderer::SimpleRenderer(ConsoleManager& consoleManager) : console(consoleManager), model(nullptr) {
+    // Initialize console size tracking
+    savedConsoleWidth = 0;
+    savedConsoleHeight = 0;
+    currentConsoleWidth = 0;
+    currentConsoleHeight = 0;
 }
 
 SimpleRenderer::~SimpleRenderer() {
@@ -66,10 +71,44 @@ bool SimpleRenderer::LoadModel(const std::string& filename) {
     }
 }
 
+void SimpleRenderer::UpdateConsoleSize() {
+    // Get current console size
+    console.GetConsoleSize(&currentConsoleWidth, &currentConsoleHeight);
+    
+    // Check if console size has changed
+    if (currentConsoleWidth != savedConsoleWidth || currentConsoleHeight != savedConsoleHeight) {
+        // Console size changed - clear the screen
+        console.ClearScreen();
+        
+        // Update saved dimensions
+        savedConsoleWidth = currentConsoleWidth;
+        savedConsoleHeight = currentConsoleHeight;
+    }
+}
+
 void SimpleRenderer::RenderFrame() {
-    if (!model || !console) {
+    if (!model) {
         return;
     }
+
+    // Update and check console size first
+    UpdateConsoleSize();
+
+    // Calculate dynamic render resolution based on console size
+    int targetWidth = currentConsoleWidth - 2;   // Leave some margin
+    int targetHeight = currentConsoleHeight - 3; // Leave margin for header and prompt
+    
+    // Ensure minimum values
+    if (targetWidth < 10) targetWidth = 10;
+    if (targetHeight < 5) targetHeight = 5;
+    
+    // Scale up the render resolution for better quality (2x scale factor)
+    int renderWidth = targetWidth * 2;
+    int renderHeight = targetHeight * 2;
+    
+    // Cap maximum resolution for performance
+    if (renderWidth > 1920) renderWidth = 1920;
+    if (renderHeight > 1080) renderHeight = 1080;
 
     static float angle = 0.0f;
     angle += 0.05f; // Rotate model slowly
@@ -80,14 +119,14 @@ void SimpleRenderer::RenderFrame() {
     vec3 center{0, 0, 0};
     vec3 up{0, 1, 0};
 
-    // Build matrices
+    // Build matrices using dynamic resolution
     lookat(eye, center, up);
     init_perspective(norm(eye - center));
-    init_viewport(width/8, height/8, width*3/4, height*3/4);
-    init_zbuffer(width, height);
+    init_viewport(renderWidth/8, renderHeight/8, renderWidth*3/4, renderHeight*3/4);
+    init_zbuffer(renderWidth, renderHeight);
 
-    // Create framebuffer
-    TGAImage framebuffer(width, height, TGAImage::RGBA, {50, 50, 100, 255});
+    // Create framebuffer with dynamic resolution
+    TGAImage framebuffer(renderWidth, renderHeight, TGAImage::RGBA, {50, 50, 100, 255});
 
     // Render model
     SimpleShader shader(light, *model);
@@ -100,18 +139,29 @@ void SimpleRenderer::RenderFrame() {
         rasterize(clip, shader, framebuffer);
     }
     
-
+    // Calculate sampling rates to fit the console (should be close to 1:1 now)
+    int sampleX = renderWidth / targetWidth;
+    int sampleY = renderHeight / targetHeight;
     
-    int effectiveWidth = width;
-    int effectiveHeight = height;
+    // Ensure minimum sampling of 1
+    if (sampleX < 1) sampleX = 1;
+    if (sampleY < 1) sampleY = 1;
+    
+    int effectiveWidth = renderWidth / sampleX;
+    int effectiveHeight = renderHeight / sampleY;
+    
+    // Clear and move to top
+    console.MoveCursor(1, 1);
     
     std::stringstream output;
     output << "\033[1;36m3D Model Render (" << effectiveWidth << "x" << effectiveHeight 
-           << ") - Frame " << static_cast<int>(angle * 10) << "\033[0m\n";
+           << ") Internal:" << renderWidth << "x" << renderHeight
+           << " Console:" << currentConsoleWidth << "x" << currentConsoleHeight
+           << " Frame:" << static_cast<int>(angle * 10) << "\033[0m\n";
     
     // Sample the framebuffer with dynamic sampling rates
-    for (int y = 0; y < height; y += 1) {
-        for (int x = 0; x < width; x += 1) {
+    for (int y = 0; y < renderHeight; y += sampleY) {
+        for (int x = 0; x < renderWidth; x += sampleX) {
             TGAColor pixel = framebuffer.get(x, y);
             
             // Extract RGB values (TGAColor stores as BGRA)
@@ -131,14 +181,14 @@ void SimpleRenderer::RenderFrame() {
             
             // Use ANSI 24-bit truecolor for foreground color with character
             if (brightness > 30) {  // Only show color for non-black pixels
-                output << "\033[38;2;" << r << ";" << g << ";" << b << "m" << displayChar << displayChar << "\033[0m";
+                output << "\033[38;2;" << r << ";" << g << ";" << b << "m" << displayChar << "\033[0m";
             } else {
-                output << "  ";  // Two spaces for black/dark pixels
+                output << " ";  // One space for black/dark pixels
             }
         }
         output << "\n";
     }
     
-    console->Print(output.str().c_str());
+    console.Print(output.str().c_str());
 }
 
