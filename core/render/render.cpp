@@ -272,46 +272,39 @@ void SimpleRenderer::RenderFrame() {
             int brightness = (r + g + b) / 3;
             char displayChar;
             
-            if (brightness > 200) displayChar = '*';
-            else if (brightness > 150) displayChar = '+';
-            else if (brightness > 100) displayChar = '#';
-            else if (brightness > 50) displayChar = '@';
-            else displayChar = ' ';
+
+
+            displayChar = '@';
+            
             
             // Count consecutive pixels with same color (run-length encoding)
             int repeatCount = 1;
             std::string currentColorCode = ConvertToANSI(r, g, b, false);
             
             // Only count repeats within the same line and if brightness > 30
-            if (brightness > 30) {
-                while (x + repeatCount * sampleX < renderWidth) {
-                    TGAColor nextPixel = framebuffer.get(x + repeatCount * sampleX, y);
-                    int nextR = static_cast<int>(nextPixel[2]);
-                    int nextG = static_cast<int>(nextPixel[1]);
-                    int nextB = static_cast<int>(nextPixel[0]);
-                    int nextBrightness = (nextR + nextG + nextB) / 3;
-                    
-                    // Check if next pixel has same color and brightness > 30
-                    if (nextBrightness > 30 && ConvertToANSI(nextR, nextG, nextB, false) == currentColorCode) {
-                        repeatCount++;
-                    } else {
-                        break;
-                    }
-                }
-                
-                // Output the color once and repeat the character
-                output << currentColorCode;
-                for (int rep = 0; rep < repeatCount; rep++) {
-                    output << displayChar;
-                }
-                output << "\033[0m";
-                
-                x += repeatCount * sampleX;
+        while (x + repeatCount * sampleX < renderWidth) {
+            TGAColor nextPixel = framebuffer.get(x + repeatCount * sampleX, y);
+            int nextR = static_cast<int>(nextPixel[2]);
+            int nextG = static_cast<int>(nextPixel[1]);
+            int nextB = static_cast<int>(nextPixel[0]);
+            int nextBrightness = (nextR + nextG + nextB) / 3;
+            
+            // Check if next pixel has same color and brightness > 30
+            if (nextBrightness > 30 && ConvertToANSI(nextR, nextG, nextB, false) == currentColorCode) {
+                repeatCount++;
             } else {
-                // For dark pixels, just output space
-                output << " ";
-                x += sampleX;
+                break;
             }
+        }
+        
+        // Output the color once and repeat the character
+        output << currentColorCode;
+        for (int rep = 0; rep < repeatCount; rep++) {
+            output << displayChar;
+        }
+        output << "\033[0m";
+        
+        x += repeatCount * sampleX;
         }
         output << "\n";
     }
