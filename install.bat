@@ -23,11 +23,14 @@ call :CheckAndCompile "core/console/console.cpp" "bin/console.obj"
 call :CheckAndCompile "core/clock/clock.cpp" "bin/clock.obj"
 call :CheckAndCompile "core/sound/sound.cpp" "bin/sound.obj"
 call :CheckAndCompile "core/render/render.cpp" "bin/render.obj"
+call :CheckAndCompile "core/tinyrenderer-master/model.cpp" "bin/model.obj"
+call :CheckAndCompile "core/tinyrenderer-master/our_gl.cpp" "bin/our_gl.obj"
+call :CheckAndCompile "core/tinyrenderer-master/tgaimage.cpp" "bin/tgaimage.obj"
 
 echo Linking object files to create executable...
 
 REM Link all object files together
-link /OUT:engine.exe bin\main.obj bin\input.obj bin\window.obj bin\console.obj bin\clock.obj bin\sound.obj bin\render.obj /SUBSYSTEM:CONSOLE user32.lib kernel32.lib gdi32.lib
+link /OUT:engine.exe bin\main.obj bin\input.obj bin\window.obj bin\console.obj bin\clock.obj bin\sound.obj bin\render.obj bin\model.obj bin\our_gl.obj bin\tgaimage.obj /SUBSYSTEM:CONSOLE user32.lib kernel32.lib gdi32.lib winmm.lib
 
 echo Build complete!
 echo Hash information stored in compile_hashes.txt
@@ -49,7 +52,7 @@ set CURRENT_HASH=!CURRENT_HASH: =!
 REM Check if object file exists
 if not exist "!OBJECT_FILE!" (
     echo Compiling !SOURCE_FILE! ^(object file missing^)...
-    cl /c /EHsc /O2 "!SOURCE_FILE!" /Fo"!OBJECT_FILE!"
+    cl /c /EHsc /O2 /std:c++17 /I"core" "!SOURCE_FILE!" /Fo"!OBJECT_FILE!"
     goto :update_hash
 )
 
@@ -70,7 +73,7 @@ if "!CURRENT_HASH!"=="!STORED_HASH!" (
     goto :eof
 ) else (
     echo Compiling !SOURCE_FILE! ^(source changed^)...
-    cl /c /EHsc /O2 "!SOURCE_FILE!" /Fo"!OBJECT_FILE!"
+    cl /c /EHsc /O2 /std:c++17 /I"core" "!SOURCE_FILE!" /Fo"!OBJECT_FILE!"
 )
 
 :update_hash

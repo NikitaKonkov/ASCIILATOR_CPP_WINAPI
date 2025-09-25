@@ -146,14 +146,31 @@ DWORD WINAPI SoundThreadProc(LPVOID lpParam) {
 DWORD WINAPI RenderThreadProc(LPVOID lpParam) {
     volatile bool* g_shouldExit = static_cast<volatile bool*>(lpParam);
     
+    ConsoleManager console;
+    ClockManager clock;
+    SimpleRenderer renderer(&console);
     
-
-
-    // Empty thread for now - placeholder for future rendering
-    while (!*g_shouldExit) {
-        Sleep(16); // ~60 FPS
+    // Try to load the african head model
+    std::string modelPath = "core/tinyrenderer-master/obj/african_head/african_head.obj";
+    if (!renderer.LoadModel(modelPath)) {
+        console.PrintColoredLine(COLOR_BRIGHT_RED, "Failed to load 3D model!");
+        *g_shouldExit = true;
+        return 1;
     }
     
+    console.PrintColoredLine(COLOR_BRIGHT_GREEN, "3D renderer started! Model loaded successfully.");
+    
+    //int renderClock = clock.CreateClock(24, "RenderClock"); // 2 FPS for rendering
+    
+    while (!*g_shouldExit) {
+        //if (clock.SyncClock(renderClock)) {
+            console.MoveCursor(1, 1);
+            renderer.RenderFrame();
+        //}
+        // Sleep(10); // Small sleep to prevent busy waiting
+    }
+    
+    clock.DestroyAllClocks();
     return 0;
 }
 
