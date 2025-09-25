@@ -377,6 +377,174 @@ void geometry_draw() {
             screen_buffer[y][x].valid = 0;
         }
     }
+    
+    // Draw test objects
+    draw_test_objects();
+}
+
+// Clipping functions
+bool is_vertex_in_view_frustum(const vertex& v, float near_plane, float far_plane) {
+    // Simple frustum culling - check if vertex is within reasonable bounds
+    vertex projected = project_vertex(v, camera.x, camera.y, camera.z, 
+                                    camera.yaw, camera.pitch, 90.0f,
+                                    (float)screen_width / (float)screen_height, near_plane);
+    
+    // Check depth bounds
+    if (projected.z < near_plane || projected.z > far_plane) return false;
+    
+    // Check screen bounds with some margin
+    if (projected.x < -50 || projected.x > screen_width + 50) return false;
+    if (projected.y < -50 || projected.y > screen_height + 50) return false;
+    
+    return true;
+}
+
+bool should_draw_edge(const edge& e) {
+    // Check if at least one vertex is in view
+    return is_vertex_in_view_frustum(e.start, 0.1f, 100.0f) || is_vertex_in_view_frustum(e.end, 0.1f, 100.0f);
+}
+
+bool should_draw_face(const face& f) {
+    // Check if any vertex is in view
+    for (int i = 0; i < f.vertex_count; i++) {
+        if (is_vertex_in_view_frustum(f.vertices[i], 0.1f, 100.0f)) return true;
+    }
+    return false;
+}
+
+// Test objects creation
+void create_test_cubes() {
+    // We'll create the cubes in the draw function to avoid global state
+}
+
+// Draw test objects function
+void draw_test_objects() {
+    // Cube 1: Face-based cube (colored faces) at position (5, 0, 5)
+    vertex cube1_center = {5.0f, 0.0f, 5.0f};
+    float size = 2.0f;
+    
+    // Define cube vertices relative to center
+    vertex cube1_vertices[8] = {
+        {cube1_center.x - size, cube1_center.y - size, cube1_center.z - size}, // 0: left-bottom-back
+        {cube1_center.x + size, cube1_center.y - size, cube1_center.z - size}, // 1: right-bottom-back
+        {cube1_center.x + size, cube1_center.y + size, cube1_center.z - size}, // 2: right-top-back
+        {cube1_center.x - size, cube1_center.y + size, cube1_center.z - size}, // 3: left-top-back
+        {cube1_center.x - size, cube1_center.y - size, cube1_center.z + size}, // 4: left-bottom-front
+        {cube1_center.x + size, cube1_center.y - size, cube1_center.z + size}, // 5: right-bottom-front
+        {cube1_center.x + size, cube1_center.y + size, cube1_center.z + size}, // 6: right-top-front
+        {cube1_center.x - size, cube1_center.y + size, cube1_center.z + size}  // 7: left-top-front
+    };
+    
+    // Draw 6 faces of cube 1 (with different colors)
+    face faces[6];
+    
+    // Front face (red)
+    faces[0].vertices[0] = cube1_vertices[4]; faces[0].vertices[1] = cube1_vertices[5];
+    faces[0].vertices[2] = cube1_vertices[6]; faces[0].vertices[3] = cube1_vertices[7];
+    faces[0].vertex_count = 4; faces[0].color = 91; faces[0].ascii = '#'; // Bright red
+    
+    // Back face (green)
+    faces[1].vertices[0] = cube1_vertices[1]; faces[1].vertices[1] = cube1_vertices[0];
+    faces[1].vertices[2] = cube1_vertices[3]; faces[1].vertices[3] = cube1_vertices[2];
+    faces[1].vertex_count = 4; faces[1].color = 92; faces[1].ascii = '#'; // Bright green
+    
+    // Left face (blue)
+    faces[2].vertices[0] = cube1_vertices[0]; faces[2].vertices[1] = cube1_vertices[4];
+    faces[2].vertices[2] = cube1_vertices[7]; faces[2].vertices[3] = cube1_vertices[3];
+    faces[2].vertex_count = 4; faces[2].color = 94; faces[2].ascii = '#'; // Bright blue
+    
+    // Right face (yellow)
+    faces[3].vertices[0] = cube1_vertices[5]; faces[3].vertices[1] = cube1_vertices[1];
+    faces[3].vertices[2] = cube1_vertices[2]; faces[3].vertices[3] = cube1_vertices[6];
+    faces[3].vertex_count = 4; faces[3].color = 93; faces[3].ascii = '#'; // Bright yellow
+    
+    // Bottom face (magenta)
+    faces[4].vertices[0] = cube1_vertices[0]; faces[4].vertices[1] = cube1_vertices[1];
+    faces[4].vertices[2] = cube1_vertices[5]; faces[4].vertices[3] = cube1_vertices[4];
+    faces[4].vertex_count = 4; faces[4].color = 95; faces[4].ascii = '#'; // Bright magenta
+    
+    // Top face (cyan)
+    faces[5].vertices[0] = cube1_vertices[3]; faces[5].vertices[1] = cube1_vertices[7];
+    faces[5].vertices[2] = cube1_vertices[6]; faces[5].vertices[3] = cube1_vertices[2];
+    faces[5].vertex_count = 4; faces[5].color = 96; faces[5].ascii = '#'; // Bright cyan
+    
+    // Draw faces with clipping
+    for (int i = 0; i < 6; i++) {
+        if (should_draw_face(faces[i])) {
+            draw_face(faces[i]);
+        }
+    }
+    
+    // Cube 2: Edge-based cube at position (-5, 0, 5)
+    vertex cube2_center = {-5.0f, 0.0f, 5.0f};
+    vertex cube2_vertices[8] = {
+        {cube2_center.x - size, cube2_center.y - size, cube2_center.z - size}, // 0
+        {cube2_center.x + size, cube2_center.y - size, cube2_center.z - size}, // 1
+        {cube2_center.x + size, cube2_center.y + size, cube2_center.z - size}, // 2
+        {cube2_center.x - size, cube2_center.y + size, cube2_center.z - size}, // 3
+        {cube2_center.x - size, cube2_center.y - size, cube2_center.z + size}, // 4
+        {cube2_center.x + size, cube2_center.y - size, cube2_center.z + size}, // 5
+        {cube2_center.x + size, cube2_center.y + size, cube2_center.z + size}, // 6
+        {cube2_center.x - size, cube2_center.y + size, cube2_center.z + size}  // 7
+    };
+    
+    // Define 12 edges with different colors
+    edge edges[12] = {
+        // Bottom face edges
+        {{cube2_vertices[0]}, {cube2_vertices[1]}, '=', 91}, // Red
+        {{cube2_vertices[1]}, {cube2_vertices[5]}, '|', 92}, // Green
+        {{cube2_vertices[5]}, {cube2_vertices[4]}, '=', 94}, // Blue
+        {{cube2_vertices[4]}, {cube2_vertices[0]}, '|', 93}, // Yellow
+        // Top face edges
+        {{cube2_vertices[3]}, {cube2_vertices[2]}, '=', 95}, // Magenta
+        {{cube2_vertices[2]}, {cube2_vertices[6]}, '|', 96}, // Cyan
+        {{cube2_vertices[6]}, {cube2_vertices[7]}, '=', 97}, // White
+        {{cube2_vertices[7]}, {cube2_vertices[3]}, '|', 90}, // Dark gray
+        // Vertical edges
+        {{cube2_vertices[0]}, {cube2_vertices[3]}, '+', 91}, // Red
+        {{cube2_vertices[1]}, {cube2_vertices[2]}, '+', 92}, // Green
+        {{cube2_vertices[5]}, {cube2_vertices[6]}, '+', 94}, // Blue
+        {{cube2_vertices[4]}, {cube2_vertices[7]}, '+', 93}  // Yellow
+    };
+    
+    // Draw edges with clipping
+    for (int i = 0; i < 12; i++) {
+        if (should_draw_edge(edges[i])) {
+            draw_edge(edges[i]);
+        }
+    }
+    
+    // Cube 3: Dot-based cube at position (0, 0, -5)
+    vertex cube3_center = {0.0f, 0.0f, -5.0f};
+    vertex cube3_vertices[8] = {
+        {cube3_center.x - size, cube3_center.y - size, cube3_center.z - size}, // 0
+        {cube3_center.x + size, cube3_center.y - size, cube3_center.z - size}, // 1
+        {cube3_center.x + size, cube3_center.y + size, cube3_center.z - size}, // 2
+        {cube3_center.x - size, cube3_center.y + size, cube3_center.z - size}, // 3
+        {cube3_center.x - size, cube3_center.y - size, cube3_center.z + size}, // 4
+        {cube3_center.x + size, cube3_center.y - size, cube3_center.z + size}, // 5
+        {cube3_center.x + size, cube3_center.y + size, cube3_center.z + size}, // 6
+        {cube3_center.x - size, cube3_center.y + size, cube3_center.z + size}  // 7
+    };
+    
+    // Define 8 dots with different colors and symbols
+    dot dots[8] = {
+        {{cube3_vertices[0]}, '*', 91}, // Red
+        {{cube3_vertices[1]}, '*', 92}, // Green
+        {{cube3_vertices[2]}, '*', 94}, // Blue
+        {{cube3_vertices[3]}, '*', 93}, // Yellow
+        {{cube3_vertices[4]}, 'o', 95}, // Magenta
+        {{cube3_vertices[5]}, 'o', 96}, // Cyan
+        {{cube3_vertices[6]}, 'o', 97}, // White
+        {{cube3_vertices[7]}, 'o', 90}  // Dark gray
+    };
+    
+    // Draw dots with clipping
+    for (int i = 0; i < 8; i++) {
+        if (is_vertex_in_view_frustum(dots[i].position, 0.1f, 100.0f)) {
+            draw_dot(dots[i]);
+        }
+    }
 }
 
 // Console size management
@@ -385,40 +553,86 @@ unsigned int save_console_height = 60;
 
 // Mouse sensitivity for camera control
 float mouse_sensitivity = 0.003f;
-static int last_mouse_x = 0;
-static int last_mouse_y = 0;
+static int center_mouse_x = 200; // Fixed center position
+static int center_mouse_y = 200; // Fixed center position
 static bool mouse_captured = false;
 
 // Initialize mouse capture for camera control
 void init_mouse_camera() {
-    POINT pt;
-    GetCursorPos(&pt);
-    last_mouse_x = pt.x;
-    last_mouse_y = pt.y;
+    // Set mouse to center position
+    SetCursorPos(center_mouse_x, center_mouse_y);
     mouse_captured = true;
 }
 
-// Update camera based on mouse movement
+// Set mouse center position for delta calculations
+void set_mouse_center(int x, int y) {
+    center_mouse_x = x;
+    center_mouse_y = y;
+    if (mouse_captured) {
+        SetCursorPos(center_mouse_x, center_mouse_y);
+    }
+}
+
+// Update camera based on current mouse position (delta method)
+void update_camera_mouse() {
+    if (!mouse_captured) return;
+    
+    // Get current mouse position
+    POINT current_pos;
+    GetCursorPos(&current_pos);
+    
+    // Calculate delta from center position
+    int delta_x = current_pos.x - center_mouse_x;
+    int delta_y = current_pos.y - center_mouse_y;
+    
+    // Only process if there's actual movement
+    if (delta_x != 0 || delta_y != 0) {
+        // Update camera yaw and pitch
+        camera.yaw -= delta_x * mouse_sensitivity; // Fixed: invert X axis for correct left/right movement
+        camera.pitch -= delta_y * mouse_sensitivity; // Invert Y axis
+        
+        // Clamp pitch
+        const float MAX_PITCH = 1.5f;
+        if (camera.pitch > MAX_PITCH) camera.pitch = MAX_PITCH;
+        if (camera.pitch < -MAX_PITCH) camera.pitch = -MAX_PITCH;
+        
+        // Reset mouse to center position for next frame
+        SetCursorPos(center_mouse_x, center_mouse_y);
+        
+        // Update camera vectors
+        camera_update();
+    }
+}
+
+// Update camera based on mouse movement with delta and reset
 void update_camera_mouse(int mouse_x, int mouse_y) {
     if (!mouse_captured) return;
     
-    int delta_x = mouse_x - last_mouse_x;
-    int delta_y = mouse_y - last_mouse_y;
+    // Get current mouse position
+    POINT current_pos;
+    GetCursorPos(&current_pos);
     
-    // Update camera yaw and pitch
-    camera.yaw += delta_x * mouse_sensitivity;
-    camera.pitch -= delta_y * mouse_sensitivity; // Invert Y axis
+    // Calculate delta from center position
+    int delta_x = current_pos.x - center_mouse_x;
+    int delta_y = current_pos.y - center_mouse_y;
     
-    // Clamp pitch
-    const float MAX_PITCH = 1.5f;
-    if (camera.pitch > MAX_PITCH) camera.pitch = MAX_PITCH;
-    if (camera.pitch < -MAX_PITCH) camera.pitch = -MAX_PITCH;
-    
-    last_mouse_x = mouse_x;
-    last_mouse_y = mouse_y;
-    
-    // Update camera vectors
-    camera_update();
+    // Only process if there's actual movement
+    if (delta_x != 0 || delta_y != 0) {
+        // Update camera yaw and pitch
+        camera.yaw -= delta_x * mouse_sensitivity; // Fixed: invert X axis for correct left/right movement
+        camera.pitch -= delta_y * mouse_sensitivity; // Invert Y axis
+        
+        // Clamp pitch
+        const float MAX_PITCH = 1.5f;
+        if (camera.pitch > MAX_PITCH) camera.pitch = MAX_PITCH;
+        if (camera.pitch < -MAX_PITCH) camera.pitch = -MAX_PITCH;
+        
+        // Reset mouse to center position for next frame
+        SetCursorPos(center_mouse_x, center_mouse_y);
+        
+        // Update camera vectors
+        camera_update();
+    }
 }
 
 // Move camera based on keyboard input
@@ -444,10 +658,10 @@ void move_camera(bool forward, bool backward, bool left, bool right, bool up, bo
         camera.z -= horizontal_z * camera_speed;
     }
     if (up) {
-        camera.y += camera_speed;
+        camera.y -= camera_speed; // Fixed: up should decrease Y (move up in world space)
     }
     if (down) {
-        camera.y -= camera_speed;
+        camera.y += camera_speed; // Fixed: down should increase Y (move down in world space)
     }
 }
 
@@ -492,79 +706,209 @@ vertex rotate_vertex(vertex v, vertex center, float angle_x, float angle_y, floa
     return result;
 }
 
-// Create a colored cube with rotation
-void draw_rotating_cube(vertex center, float size, float rotation_x, float rotation_y, float rotation_z) {
-    // Define cube vertices (8 corners)
-    vertex cube_vertices[8];
-    float half_size = size * 0.5f;
+////////////////////// RenderManager Class Implementation
+
+// Constructor
+RenderManager::RenderManager() : m_initialized(false) {
+    // Initialize with default values - actual initialization happens in Initialize()
+}
+
+// Destructor
+RenderManager::~RenderManager() {
+    // Cleanup if needed
+}
+
+// Initialize the render system
+void RenderManager::Initialize() {
+    if (m_initialized) return;
     
-    // Create base cube vertices
-    cube_vertices[0] = {center.x - half_size, center.y - half_size, center.z - half_size}; // Front bottom left
-    cube_vertices[1] = {center.x + half_size, center.y - half_size, center.z - half_size}; // Front bottom right
-    cube_vertices[2] = {center.x + half_size, center.y + half_size, center.z - half_size}; // Front top right
-    cube_vertices[3] = {center.x - half_size, center.y + half_size, center.z - half_size}; // Front top left
-    cube_vertices[4] = {center.x - half_size, center.y - half_size, center.z + half_size}; // Back bottom left
-    cube_vertices[5] = {center.x + half_size, center.y - half_size, center.z + half_size}; // Back bottom right
-    cube_vertices[6] = {center.x + half_size, center.y + half_size, center.z + half_size}; // Back top right
-    cube_vertices[7] = {center.x - half_size, center.y + half_size, center.z + half_size}; // Back top left
+    cmd_init();
+    init_mouse_camera();
+    camera_update();
     
-    // Rotate all vertices
-    for (int i = 0; i < 8; i++) {
-        cube_vertices[i] = rotate_vertex(cube_vertices[i], center, rotation_x, rotation_y, rotation_z);
+    m_initialized = true;
+}
+
+// Begin frame - clear buffers
+void RenderManager::BeginFrame() {
+    if (!m_initialized) return;
+    
+    geometry_draw(); // This clears the buffer
+}
+
+// End frame - present to screen
+void RenderManager::EndFrame() {
+    if (!m_initialized) return;
+    
+    output_buffer();
+}
+
+// Clear the render buffer
+void RenderManager::ClearBuffer() {
+    if (!m_initialized) return;
+    
+    geometry_draw();
+}
+
+// Present the frame to screen
+void RenderManager::Present() {
+    if (!m_initialized) return;
+    
+    output_buffer();
+}
+
+// Drawing functions
+void RenderManager::DrawDot(const dot& d) {
+    if (!m_initialized) return;
+    
+    draw_dot(d);
+}
+
+void RenderManager::DrawEdge(const edge& e) {
+    if (!m_initialized) return;
+    
+    draw_edge(e);
+}
+
+void RenderManager::DrawFace(const face& f) {
+    if (!m_initialized) return;
+    
+    draw_face(f);
+}
+
+void RenderManager::DrawRenderable(const renderable& r) {
+    if (!m_initialized) return;
+    
+    switch (r.type) {
+        case 0: DrawEdge(r.object.e); break;
+        case 1: DrawDot(r.object.d); break;
+        case 2: DrawFace(r.object.f); break;
     }
+}
+
+// Camera management
+void RenderManager::InitializeCamera() {
+    if (!m_initialized) return;
     
-    // Define cube edges with different colors
-    int cube_edges[][2] = {
-        {0, 1}, {1, 2}, {2, 3}, {3, 0}, // Front face
-        {4, 5}, {5, 6}, {6, 7}, {7, 4}, // Back face
-        {0, 4}, {1, 5}, {2, 6}, {3, 7}  // Connecting edges
-    };
+    init_mouse_camera();
+}
+
+void RenderManager::UpdateCamera() {
+    if (!m_initialized) return;
     
-    // Color scheme for different edge groups
-    int colors[] = {31, 32, 33, 34, 35, 36}; // Red, Green, Yellow, Blue, Magenta, Cyan
-    char ascii_chars[] = {'#', '@', '&', '%', '*', '+'};
+    camera_update();
+}
+
+void RenderManager::SetCameraPosition(float x, float y, float z) {
+    camera.x = x;
+    camera.y = y;
+    camera.z = z;
+    UpdateCamera();
+}
+
+void RenderManager::SetCameraRotation(float yaw, float pitch) {
+    camera.yaw = yaw;
+    camera.pitch = pitch;
+    UpdateCamera();
+}
+
+void RenderManager::GetCameraPosition(float* x, float* y, float* z) {
+    if (x) *x = camera.x;
+    if (y) *y = camera.y;
+    if (z) *z = camera.z;
+}
+
+void RenderManager::GetCameraRotation(float* yaw, float* pitch) {
+    if (yaw) *yaw = camera.yaw;
+    if (pitch) *pitch = camera.pitch;
+}
+
+void RenderManager::UpdateCameraFromMouse(int mouse_x, int mouse_y) {
+    if (!m_initialized) return;
     
-    // Draw all edges
-    for (int i = 0; i < 12; i++) {
-        edge e;
-        e.start = cube_vertices[cube_edges[i][0]];
-        e.end = cube_vertices[cube_edges[i][1]];
-        
-        // Color edges differently based on which face/group they belong to
-        if (i < 4) {
-            e.color = colors[0]; // Front face - red
-            e.ascii = ascii_chars[0];
-        } else if (i < 8) {
-            e.color = colors[1]; // Back face - green
-            e.ascii = ascii_chars[1];
-        } else {
-            e.color = colors[2 + (i % 4)]; // Connecting edges - various colors
-            e.ascii = ascii_chars[2 + (i % 4)];
-        }
-        
-        draw_edge(e);
-    }
+    update_camera_mouse(mouse_x, mouse_y);
+}
+
+void RenderManager::UpdateCameraFromMouse() {
+    if (!m_initialized) return;
     
-    // Draw cube faces for a more solid look
-    // Front face
-    face front_face;
-    front_face.vertices[0] = cube_vertices[0];
-    front_face.vertices[1] = cube_vertices[1];
-    front_face.vertices[2] = cube_vertices[2];
-    front_face.vertices[3] = cube_vertices[3];
-    front_face.vertex_count = 4;
-    front_face.color = 91; // Bright red
-    front_face.ascii = '.';
-    draw_face(front_face);
+    update_camera_mouse(); // Use the new delta version
+}
+
+void RenderManager::SetMouseCenter(int x, int y) {
+    set_mouse_center(x, y);
+}
+
+void RenderManager::MoveCameraKeyboard(bool forward, bool backward, bool left, bool right, bool up, bool down) {
+    if (!m_initialized) return;
     
-    // Back face
-    face back_face;
-    back_face.vertices[0] = cube_vertices[4];
-    back_face.vertices[1] = cube_vertices[7];
-    back_face.vertices[2] = cube_vertices[6];
-    back_face.vertices[3] = cube_vertices[5];
-    back_face.vertex_count = 4;
-    back_face.color = 92; // Bright green
-    back_face.ascii = ':';
-    draw_face(back_face);
+    move_camera(forward, backward, left, right, up, down);
+}
+
+// Aspect ratio and screen management
+void RenderManager::SetAspectRatio(float width_scale, float height_scale) {
+    set_aspect_ratio(width_scale, height_scale);
+}
+
+void RenderManager::GetAspectRatio(float* width_scale, float* height_scale) {
+    get_aspect_ratio(width_scale, height_scale);
+}
+
+void RenderManager::GetScreenDimensions(int* width, int* height) {
+    if (width) *width = screen_width;
+    if (height) *height = screen_height;
+}
+
+// Utility functions
+void RenderManager::SetPixel(int x, int y, char ascii, int color, float depth) {
+    if (!m_initialized) return;
+    
+    set_pixel(x, y, ascii, color, depth);
+}
+
+vertex RenderManager::ProjectVertex(const vertex& v, float fov, float near_plane) {
+    return project_vertex(v, camera.x, camera.y, camera.z, camera.yaw, camera.pitch, 
+                         fov, (float)screen_width / (float)screen_height, near_plane);
+}
+
+float RenderManager::CalculateDepth(const renderable& r) {
+    return calculate_renderable_depth(r);
+}
+
+// Configuration
+void RenderManager::SetCameraSpeed(float speed) {
+    camera_speed = speed;
+}
+
+void RenderManager::SetCameraTurnSpeed(float turn_speed) {
+    camera_turn_speed = turn_speed;
+}
+
+void RenderManager::SetMouseSensitivity(float sensitivity) {
+    mouse_sensitivity = sensitivity;
+}
+
+// Clipping functions for RenderManager
+bool RenderManager::IsVertexInViewFrustum(const vertex& v, float near_plane, float far_plane) {
+    return is_vertex_in_view_frustum(v, near_plane, far_plane);
+}
+
+bool RenderManager::ShouldDrawEdge(const edge& e) {
+    return should_draw_edge(e);
+}
+
+bool RenderManager::ShouldDrawFace(const face& f) {
+    return should_draw_face(f);
+}
+
+// Test objects for RenderManager
+void RenderManager::DrawTestObjects() {
+    if (!m_initialized) return;
+    
+    draw_test_objects();
+}
+
+// Private helper functions
+void RenderManager::UpdateMovementVectors() {
+    camera_update();
 }

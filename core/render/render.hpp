@@ -1,17 +1,8 @@
 #ifndef RENDER_HPP
 #define RENDER_HPP
 
-#include <vector>
 #include <memory>
-#include <string>
-#include <algorithm>
-#include <cmath>
-#include <cstring>
-#include <stdlib.h>
-#include <math.h>
-#include "windows.h"
-#include "stdio.h"
-#include <time.h>
+#include <windows.h>
 
 #define M_PI 3.14159265358979323846
 
@@ -138,6 +129,15 @@ void draw_dot(dot d);
 void draw_edge(edge e);
 void draw_face(face f);
 
+// Clipping functions
+bool is_vertex_in_view_frustum(const vertex& v, float near_plane = 0.1f, float far_plane = 100.0f);
+bool should_draw_edge(const edge& e);
+bool should_draw_face(const face& f);
+
+// Test objects
+void draw_test_objects();
+void create_test_cubes();
+
 // Console size management
 extern unsigned int save_console_width;
 extern unsigned int save_console_height;
@@ -147,16 +147,77 @@ extern float mouse_sensitivity;
 
 // Camera control functions
 void init_mouse_camera();
-void update_camera_mouse(int mouse_x, int mouse_y);
+void set_mouse_center(int x, int y);
+void update_camera_mouse(int mouse_x, int mouse_y); // Legacy version
+void update_camera_mouse(); // New delta version - reads mouse position internally
 void move_camera(bool forward, bool backward, bool left, bool right, bool up, bool down);
 
 // 3D object functions
 vertex rotate_vertex(vertex v, vertex center, float angle_x, float angle_y, float angle_z);
-void draw_rotating_cube(vertex center, float size, float rotation_x, float rotation_y, float rotation_z);
 
 // Main rendering functions
 void cmd_init();
 void output_buffer();
 void geometry_draw();
+
+// RenderManager Class - Modern interface for 3D rendering
+class RenderManager {
+public:
+    // Constructor/Destructor
+    RenderManager();
+    ~RenderManager();
+
+    // Core rendering functions
+    void Initialize();
+    void BeginFrame();
+    void EndFrame();
+    void ClearBuffer();
+    void Present();
+
+    // Drawing functions
+    void DrawDot(const dot& d);
+    void DrawEdge(const edge& e);
+    void DrawFace(const face& f);
+    void DrawRenderable(const renderable& r);
+
+    // Camera management
+    void InitializeCamera();
+    void UpdateCamera();
+    void SetCameraPosition(float x, float y, float z);
+    void SetCameraRotation(float yaw, float pitch);
+    void GetCameraPosition(float* x, float* y, float* z);
+    void GetCameraRotation(float* yaw, float* pitch);
+    void UpdateCameraFromMouse(int mouse_x, int mouse_y); // Legacy version
+    void UpdateCameraFromMouse(); // New delta version - automatic mouse handling
+    void SetMouseCenter(int x, int y); // Set center position for mouse lock
+    void MoveCameraKeyboard(bool forward, bool backward, bool left, bool right, bool up, bool down);
+
+    // Aspect ratio and screen management
+    void SetAspectRatio(float width_scale, float height_scale);
+    void GetAspectRatio(float* width_scale, float* height_scale);
+    void GetScreenDimensions(int* width, int* height);
+
+    // Utility functions
+    void SetPixel(int x, int y, char ascii, int color, float depth);
+    vertex ProjectVertex(const vertex& v, float fov = 90.0f, float near_plane = 0.1f);
+    float CalculateDepth(const renderable& r);
+    
+    // Clipping functions
+    bool IsVertexInViewFrustum(const vertex& v, float near_plane = 0.1f, float far_plane = 100.0f);
+    bool ShouldDrawEdge(const edge& e);
+    bool ShouldDrawFace(const face& f);
+    
+    // Test objects
+    void DrawTestObjects();
+
+    // Configuration
+    void SetCameraSpeed(float speed);
+    void SetCameraTurnSpeed(float turn_speed);
+    void SetMouseSensitivity(float sensitivity);
+
+private:
+    bool m_initialized;
+    void UpdateMovementVectors();
+};
 
 #endif // RENDER_HPP
