@@ -20,44 +20,65 @@ Public API (what you call)
 
 Functions in `window.hpp` (short signatures and behavior):
 
+**Basic Window Management:**
 - void InitializeRawInput();
-   - Ensures the window exists and registers for RAWINPUT mouse events (RIDEV_INPUTSINK).
+  - Ensures the window exists and registers for RAWINPUT mouse events (RIDEV_INPUTSINK).
 
 - void GetDeltaPosition(unsigned long *x, unsigned long *y);
-   - Reads accumulated mouse delta (signed values stored into unsigned args) and resets internal deltas to zero.
-   - NOTE: this clears the internal counters.
+  - Reads accumulated mouse delta (signed values stored into unsigned args) and resets internal deltas to zero.
+  - NOTE: this clears the internal counters.
 
 - void SetDeltaPosition(unsigned long x, unsigned long y);
-   - Overwrites the internal delta counters.
+  - Overwrites the internal delta counters.
 
 - bool InitiatelizeWindow();
-   - Creates the window if needed and returns true when a valid HWND exists.
+  - Creates the window if needed and returns true when a valid HWND exists.
 
 - void SetWindowTitle(const char* title);
-   - UTF-8 -> UTF-16 conversion helper used to update the window title.
+  - UTF-8 -> UTF-16 conversion helper used to update the window title.
 
 - void SetWindowSize(int width, int height);
-   - Updates desired client size and resizes the window accordingly.
+  - Updates desired client size and resizes the window accordingly.
 
 - bool CreateTextWindow();
-   - Ensures the `EDIT` child control is created and visible.
+  - Ensures the `EDIT` child control is created and visible.
 
 - void PrintToWindow(const char* format, ...);
-   - Writes formatted text to the edit control.
-   - Current implementation REPLACES the internal text buffer with the formatted string (no append).
+  - Writes formatted text to the edit control.
+  - Current implementation REPLACES the internal text buffer with the formatted string (no append).
 
 - void ClearWindow();
-   - Clears internal text buffer and resets the edit control text to empty.
+  - Clears internal text buffer and resets the edit control text to empty.
 
 - void MoveCursorInWindow(int x, int y);
-   - Minimal caret movement helper: sets focus and moves selection to the end. Not an exact (x,y) mapping.
+  - Minimal caret movement helper: sets focus and moves selection to the end. Not an exact (x,y) mapping.
 
 - void CloseWindow();
-   - Destroys the window and releases handles.
+  - Destroys the window and releases handles.
 
-- Accessors: HWND GetWindowHandle(), bool ShouldClose(), void SetShouldClose(bool)
+**High-Level Thread Management Functions (NEW):**
+- bool SetupWindow(int width, int height, const char* title);
+  - One-call setup: sets size, creates window, creates text control, sets title, initializes raw input.
+  - Returns true on success.
 
-Important implementation details
+- void RunWindowThread();
+  - Complete window thread main loop with message pumping, ESC handling, mouse delta updates, and heartbeat.
+  - Runs until window should close.
+
+- void RunWindowThread(volatile bool* globalExitFlag);
+  - Same as above but coordinates with a global exit flag for multi-threaded applications.
+  - Sets the flag to true when exiting due to ESC or window close.
+
+- void ProcessWindowMessages();
+  - Pumps window messages (PeekMessage/TranslateMessage/DispatchMessage loop).
+
+- void UpdateMouseDelta();
+  - Reads mouse delta and prints it to the window if non-zero.
+
+- void PrintHeartbeat();
+  - Prints a heartbeat message to the window.
+
+- Accessors: HWND GetWindowHandle(), bool ShouldClose(), void SetShouldClose(bool)Important implementation details
 --------------------------------
 
 - Window class registration: `RegisterClassIfNeeded()` registers `kWndClassName` with a `StaticWndProc` that forwards to the instance `WndProc` using GWLP_USERDATA. This allows multiple WindowManager instances if desired.
@@ -69,11 +90,38 @@ Important implementation details
 Threading & message loop
 ------------------------
 
-- The `WindowManager` is designed to be used from a thread that runs a Win32 message loop. That means creating the window and then running `PeekMessage`/`TranslateMessage`/`DispatchMessage` in a loop.
+The `WindowManager` is designed to be used from a thread that runs a Win32 message loop. 
 
-- Example (window thread):
+**Simple Usage (NEW - Recommended):**
 
+Use the high-level `SetupWindow()` and `RunWindowThread()` functions for easy integration:
+
+```cpp
+// In your window thread function:
+DWORD WINAPI WindowThread(LPVOID lpParam) {
+    WindowManager window;
+    
+    // One-line setup
+    if (!window.SetupWindow(600, 400, "My Window")) {
+        return 1; // Failed
+    }
+    
+    // For single-threaded applications:
+    window.RunWindowThread();
+    
+    // Or for multi-threaded with global coordination:
+    extern volatile bool g_shouldExit;
+    window.RunWindowThread(&g_shouldExit);
+    
+    return 0;
+}
 ```
+
+**Manual Usage (Advanced):**
+
+For more control, use the individual functions:
+
+```cpp
 WindowManager window;
 window.SetWindowSize(600, 400);
 if (!window.InitiatelizeWindow() || !window.CreateTextWindow()) return;
@@ -82,24 +130,17 @@ window.InitializeRawInput();
 
 MSG msg;
 while (!shouldExit && !window.ShouldClose()) {
-   while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {
-      TranslateMessage(&msg);
-      DispatchMessage(&msg);
-   }
+  window.ProcessWindowMessages();
 
-   // Example periodic work: read mouse deltas
-   unsigned long dx=0, dy=0;
-   window.GetDeltaPosition(&dx, &dy);
-   if (dx || dy) {
-      window.ClearWindow();
-      window.PrintToWindow("Mouse delta: %ld, %ld\r\n", (long)dx, (long)dy);
-   }
+  // Example periodic work: read mouse deltas
+  window.UpdateMouseDelta();
+  
+  // Print heartbeat
+  window.PrintHeartbeat();
 
-   Sleep(10);
+  Sleep(10);
 }
-```
-
-Raw input notes and caveats
+```Raw input notes and caveats
 --------------------------
 
 - `WndProc` uses `GetRawInputData` twice: first to get required buffer size, then to retrieve the payload. The implementation allocates a `BYTE*` buffer with `new[]` and deletes it after use.
@@ -111,7 +152,7 @@ Raw input notes and caveats
 Text handling behavior
 ---------------------
 
-- `PrintToWindow()` currently replaces the entire internal `m_textBuffer` with the new formatted string. It then updates the edit control text and scrolls to caret. This avoids unbounded growth but means you don't get an appended log.
+- `PrintToWindow()` currently replaces the entire internal `m_textBuffer` with the new formatted string. It then updates the edit control text and scrolls to caret. This avoids unbounded growth but means you dont get an appended log.
 
 - If you want an appending log, implement a small circular buffer of lines (N lines) and update the edit control from that buffer.
 

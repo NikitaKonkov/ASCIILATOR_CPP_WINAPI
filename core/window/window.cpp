@@ -1,6 +1,7 @@
 // Implementation of WindowManager - small text window with raw input mouse delta collection
 
 #include "window.hpp"
+#include "../clock/clock.hpp"
 #include <windowsx.h>
 #include <cstdio>
 #include <cstdarg>
@@ -275,5 +276,98 @@ void WindowManager::CloseWindow() {
 		m_hWnd = nullptr;
 		m_hEdit = nullptr;
 	}
+}
+
+////////////////////// High-level window management functions
+bool WindowManager::SetupWindow(int width, int height, const char* title) {
+	SetWindowSize(width, height);
+	if (!InitiatelizeWindow() || !CreateTextWindow()) {
+		return false;
+	}
+	SetWindowTitle(title);
+	InitializeRawInput();
+	return true;
+}
+
+void WindowManager::ProcessWindowMessages() {
+	MSG msg{};
+	while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {
+		if (msg.message == WM_QUIT) {
+			m_shouldClose = true;
+			return;
+		}
+		TranslateMessage(&msg);
+		DispatchMessage(&msg);
+	}
+}
+
+void WindowManager::UpdateMouseDelta() {
+	unsigned long dx = 0, dy = 0;
+	GetDeltaPosition(&dx, &dy);
+	long sdx = (long)dx;
+	long sdy = (long)dy;
+	if (sdx != 0 || sdy != 0) {
+		ClearWindow();
+		PrintToWindow("Mouse delta: %ld, %ld\r\n", sdx, sdy);
+	}
+}
+
+void WindowManager::PrintHeartbeat() {
+	ClearWindow();
+	PrintToWindow("[Window] heartbeat...\r\n");
+}
+
+void WindowManager::RunWindowThread() {
+	RunWindowThread(nullptr);
+}
+
+void WindowManager::RunWindowThread(volatile bool* globalExitFlag) {
+	// Setup clocks for this thread
+	ClockManager clock;
+	int windowClock = clock.CreateClock(5, "WindowUpdate"); // 5 FPS updates
+	int heartbeatClock = clock.CreateClock(1, "WindowHeartbeat"); // 1 FPS heartbeat
+	
+	int exitAttempts = 0;
+	while (!ShouldClose()) {
+		// Check global exit flag if provided
+		if (globalExitFlag && *globalExitFlag) {
+			break;
+		}
+		
+		// Process window messages
+		ProcessWindowMessages();
+		
+		// Check for ESC key - highest priority exit condition
+		if (GetAsyncKeyState(VK_ESCAPE) & 0x8000) {
+			if (globalExitFlag) *globalExitFlag = true;
+			SetShouldClose(true);
+			exitAttempts++;
+			if (exitAttempts > 10) { // Force exit after multiple ESC presses
+				break;
+			}
+		}
+		
+		// Check window close state
+		if (ShouldClose()) {
+			if (globalExitFlag) *globalExitFlag = true;
+			break;
+		}
+		
+		// Update mouse delta at 5 FPS
+		if (clock.SyncClock(windowClock)) {
+			UpdateMouseDelta();
+		}
+		
+		// Print heartbeat at 1 FPS
+		if (clock.SyncClock(heartbeatClock)) {
+			PrintHeartbeat();
+		}
+		
+		Sleep(10); // Short sleep for responsiveness
+	}
+	
+	// Clean up resources
+	clock.DestroyAllClocks();
+	CloseWindow();
 }
 

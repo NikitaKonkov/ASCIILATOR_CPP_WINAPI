@@ -23,12 +23,12 @@ call :CheckAndCompile "core/console/console.cpp" "bin/console.obj"
 call :CheckAndCompile "core/clock/clock.cpp" "bin/clock.obj"
 call :CheckAndCompile "core/sound/sound.cpp" "bin/sound.obj"
 call :CheckAndCompile "core/render/render.cpp" "bin/render.obj"
-
+call :CheckAndCompile "core/thread/thread.cpp" "bin/thread.obj"
 
 echo Linking object files to create executable...
 
 REM Link all object files together
-link /OUT:engine.exe bin\main.obj bin\input.obj bin\window.obj bin\console.obj bin\clock.obj bin\sound.obj bin\render.obj /SUBSYSTEM:CONSOLE user32.lib kernel32.lib gdi32.lib
+link /OUT:engine.exe bin\main.obj bin\input.obj bin\window.obj bin\console.obj bin\clock.obj bin\sound.obj bin\render.obj bin\thread.obj /SUBSYSTEM:CONSOLE user32.lib kernel32.lib gdi32.lib
 
 echo Build complete!
 echo Hash information stored in compile_hashes.txt

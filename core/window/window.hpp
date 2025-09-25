@@ -27,6 +27,14 @@ public:
     void MoveCursorInWindow(int x, int y);
     void CloseWindow();
 
+    // High-level window thread management
+    bool SetupWindow(int width, int height, const char* title);
+    void RunWindowThread();
+    void RunWindowThread(volatile bool* globalExitFlag);
+    void ProcessWindowMessages();
+    void UpdateMouseDelta();
+    void PrintHeartbeat();
+
     // Accessors
     HWND GetWindowHandle() const { return m_hWnd; }
     bool ShouldClose() const { return m_shouldClose; }
