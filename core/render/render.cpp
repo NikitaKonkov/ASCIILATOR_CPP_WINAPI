@@ -3,7 +3,9 @@
 #include <sstream>
 #include <iomanip>
 #include <algorithm>
-#include <cmath>
+
+#define MAX(a, b) ((a) > (b) ? (a) : (b))
+#define MIN(a, b) ((a) < (b) ? (a) : (b))
 
 // External tinyrenderer globals
 extern mat<4,4> ModelView, Perspective;
@@ -98,33 +100,48 @@ ColorMode SimpleRenderer::GetColorMode() const {
     return currentColorMode;
 }
 
-// Convert RGB to 4-bit ANSI color (16 colors)
+#define MAXV(a,b,c) ( ((a)>(b)) ? ( ((a)>(c)) ? (a) : (c) ) : ( ((b)>(c)) ? (b) : (c) ) )
+#define MINV(a,b,c) ( ((a)<(b)) ? ( ((a)<(c)) ? (a) : (c) ) : ( ((b)<(c)) ? (b) : (c) ) )
 int SimpleRenderer::RGBTo4Bit(int r, int g, int b, bool isBright) {
-    // Normalize RGB to 0-1 range
-    double rd = r / 255.0;
-    double gd = g / 255.0;
-    double bd = b / 255.0;
-    
-    // Calculate brightness
-    double brightness = (rd + gd + bd) / 3.0;
-    
-    // Determine if we should use bright colors
-    bool useBright = isBright || brightness > 0.5;
-    
-    // Find closest basic color
-    int color = 0; // Black
-    
-    if (rd > 0.5 && gd < 0.3 && bd < 0.3) color = 1; // Red
-    else if (rd < 0.3 && gd > 0.5 && bd < 0.3) color = 2; // Green
-    else if (rd > 0.5 && gd > 0.5 && bd < 0.3) color = 3; // Yellow
-    else if (rd < 0.3 && gd < 0.3 && bd > 0.5) color = 4; // Blue
-    else if (rd > 0.5 && gd < 0.3 && bd > 0.5) color = 5; // Magenta
-    else if (rd < 0.3 && gd > 0.5 && bd > 0.5) color = 6; // Cyan
-    else if (rd > 0.5 && gd > 0.5 && bd > 0.5) color = 7; // White
-    
-    // Return appropriate color code
-    return useBright ? (90 + color) : (30 + color);
+    // Normalize once using integer math where possible
+    int maxVal = MAXV(r, g, b);
+    int minVal = MINV(r, g, b);
+    int sum    = r + g + b;
+
+    double brightness = sum / (255.0 * 3.0); // [0,1]
+    bool useBright = isBright || brightness > 0.4;
+
+    double saturation = (maxVal > 0) ? (double)(maxVal - minVal) / maxVal : 0.0;
+
+    // Handle grayscale (low saturation)
+    if (saturation < 0.1) {
+        if (brightness < 0.2) return useBright ? 90 : 30; // Black
+        if (brightness > 0.8) return useBright ? 97 : 37; // White
+        return useBright ? 90 : 30;                       // Mid gray → fallback to black
+    }
+
+    // Color classification
+    int color;
+    if (r >= g && r >= b) {
+        // Red dominant
+        if (g > b && g > r * 0.6)      color = 3; // Yellow
+        else if (b > r * 0.6)          color = 5; // Magenta
+        else                           color = 1; // Red
+    } else if (g >= r && g >= b) {
+        // Green dominant
+        if (r > b && r > g * 0.6)      color = 3; // Yellow
+        else if (b > g * 0.6)          color = 6; // Cyan
+        else                           color = 2; // Green
+    } else {
+        // Blue dominant
+        if (r > g && r > b * 0.6)      color = 5; // Magenta
+        else if (g > b * 0.6)          color = 6; // Cyan
+        else                           color = 4; // Blue
+    }
+
+    return (useBright ? 90 : 30) + color;
 }
+
 
 // Convert RGB to 8-bit ANSI color (256 colors)
 int SimpleRenderer::RGBTo8Bit(int r, int g, int b) {
@@ -189,39 +206,28 @@ void SimpleRenderer::RenderFrame() {
         return;
     }
 
-    // Update and check console size first
+    // Update console size first
     UpdateConsoleSize();
 
-    // Calculate dynamic render resolution based on console size
-    int targetWidth = currentConsoleWidth - 2;   // Leave some margin
-    int targetHeight = currentConsoleHeight - 3; // Leave margin for header and prompt
-    
-    // Ensure minimum values
-    if (targetWidth < 10) targetWidth = 10;
-    if (targetHeight < 5) targetHeight = 5;
-    
-    // Scale up the render resolution for better quality (2x scale factor)
-    int renderWidth = targetWidth * 2;
-    int renderHeight = targetHeight * 2;
-    
-
+    int renderWidth  = currentConsoleWidth - 1;
+    int renderHeight = currentConsoleHeight - 3;
 
     static float angle = 0.0f;
     angle += 0.05f; // Rotate model slowly
 
-    // Setup camera and lighting
+    // Camera + lighting
     vec3 light{1, 1, 1};
-    vec3 eye{2*cos(angle), 1, 2*sin(angle)}; // Rotating camera
+    vec3 eye{2 * cos(angle), 1, 2 * sin(angle)};
     vec3 center{0, 0, 0};
     vec3 up{0, 1, 0};
 
-    // Build matrices using dynamic resolution
+    // Build matrices
     lookat(eye, center, up);
     init_perspective(norm(eye - center));
-    init_viewport(renderWidth/8, renderHeight/8, renderWidth*3/4, renderHeight*3/4);
+    init_viewport(renderWidth / 8, renderHeight / 8, renderWidth * 3 / 4, renderHeight * 3 / 4);
     init_zbuffer(renderWidth, renderHeight);
 
-    // Create framebuffer with dynamic resolution
+    // Create framebuffer
     TGAImage framebuffer(renderWidth, renderHeight, TGAImage::RGBA, {50, 50, 100, 255});
 
     // Render model
@@ -234,81 +240,68 @@ void SimpleRenderer::RenderFrame() {
         };
         rasterize(clip, shader, framebuffer);
     }
-    
-    // Calculate sampling rates to fit the console (should be close to 1:1 now)
-    int sampleX = renderWidth / targetWidth;
-    int sampleY = renderHeight / targetHeight;
-    
-    // Ensure minimum sampling of 1
-    if (sampleX < 1) sampleX = 1;
-    if (sampleY < 1) sampleY = 1;
-    
-    int effectiveWidth = renderWidth / sampleX;
-    int effectiveHeight = renderHeight / sampleY;
-    
-    // Clear and move to top
+
+    // Sampling step sizes (avoid repeated division)
+    int stepX = MAX(1, renderWidth / (currentConsoleWidth - 1));
+    int stepY = MAX(1, renderHeight / (currentConsoleHeight - 3));
+
+    // Clear console + move cursor
     console.MoveCursor(1, 1);
-    
-    std::stringstream output;
-    output << "\033[1;36m3D Model Render (" << effectiveWidth << "x" << effectiveHeight 
-           << ") Internal:" << renderWidth << "x" << renderHeight
-           << " Console:" << currentConsoleWidth << "x" << currentConsoleHeight
-           << " Mode:" << (currentColorMode == ColorMode::COLOR_4BIT ? "4bit" : 
-                          currentColorMode == ColorMode::COLOR_8BIT ? "8bit" : "24bit")
-           << " Frame:" << static_cast<int>(angle * 10) << "\033[0m\n";
-    
-    // Sample the framebuffer with dynamic sampling rates using run-length encoding optimization
-    for (int y = 0; y < renderHeight; y += sampleY) {
+
+    std::string output;
+    output.reserve(renderWidth * renderHeight); // pre-allocate
+
+    // Header info
+    output += "\033[1;36m3D Model Render (";
+    output += std::to_string(stepX);
+    output += "x";
+    output += std::to_string(stepY);
+    output += ") Internal:";
+    output += std::to_string(renderWidth);
+    output += "x";
+    output += std::to_string(renderHeight);
+    output += " Console:";
+    output += std::to_string(currentConsoleWidth);
+    output += "x";
+    output += std::to_string(currentConsoleHeight);
+    output += " Mode:";
+    output += (currentColorMode == ColorMode::COLOR_4BIT ? "4bit" :
+               currentColorMode == ColorMode::COLOR_8BIT ? "8bit" : "24bit");
+    output += " Frame:";
+    output += std::to_string(static_cast<int>(angle * 10));
+    output += "\033[0m\n";
+
+    // Framebuffer sampling + RLE
+    for (int y = 0; y < renderHeight; y += stepY) {
         int x = 0;
         while (x < renderWidth) {
             TGAColor pixel = framebuffer.get(x, y);
-            
-            // Extract RGB values (TGAColor stores as BGRA)
-            int r = static_cast<int>(pixel[2]);  // Red
-            int g = static_cast<int>(pixel[1]);  // Green  
-            int b = static_cast<int>(pixel[0]);  // Blue
-            
-            // Calculate brightness for choosing character
-            int brightness = (r + g + b) / 3;
-            char displayChar;
-            
+            int r = pixel[2];
+            int g = pixel[1];
+            int b = pixel[0];
 
+            // Precompute ANSI once
+            std::string colorCode = ConvertToANSI(r, g, b, false);
 
-            displayChar = '@';
-            
-            
-            // Count consecutive pixels with same color (run-length encoding)
+            // Run-length encoding
             int repeatCount = 1;
-            std::string currentColorCode = ConvertToANSI(r, g, b, false);
-            
-            // Only count repeats within the same line and if brightness > 30
-        while (x + repeatCount * sampleX < renderWidth) {
-            TGAColor nextPixel = framebuffer.get(x + repeatCount * sampleX, y);
-            int nextR = static_cast<int>(nextPixel[2]);
-            int nextG = static_cast<int>(nextPixel[1]);
-            int nextB = static_cast<int>(nextPixel[0]);
-            int nextBrightness = (nextR + nextG + nextB) / 3;
-            
-            // Check if next pixel has same color and brightness > 30
-            if (nextBrightness > 30 && ConvertToANSI(nextR, nextG, nextB, false) == currentColorCode) {
-                repeatCount++;
-            } else {
-                break;
+            while (x + repeatCount * stepX < renderWidth) {
+                TGAColor next = framebuffer.get(x + repeatCount * stepX, y);
+                if (next[0] == pixel[0] && next[1] == pixel[1] && next[2] == pixel[2]) {
+                    repeatCount++;
+                } else {
+                    break;
+                }
             }
-        }
-        
-        // Output the color once and repeat the character
-        output << currentColorCode;
-        for (int rep = 0; rep < repeatCount; rep++) {
-            output << displayChar;
-        }
-        output << "\033[0m";
-        
-        x += repeatCount * sampleX;
-        }
-        output << "\n";
-    }
-    
-    console.Print(output.str().c_str());
-}
 
+            // Output chunk
+            output += colorCode;
+            output.append(repeatCount, '#');
+
+            x += repeatCount * stepX;
+        }
+        output += "\033[0m\n"; // reset only once per line
+    }
+
+    console.Print(output.c_str());
+}

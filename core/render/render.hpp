@@ -17,8 +17,8 @@ class SimpleRenderer {
 private:
     ConsoleManager& console;  // Changed from pointer to reference
     Model* model;
-    static const int width = 960;
-    static const int height = 240;
+    static const int width = 0;
+    static const int height = 0;
     
     // Console size tracking
     int savedConsoleWidth;
